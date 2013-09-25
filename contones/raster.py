@@ -6,43 +6,13 @@ from PIL import Image, ImageDraw
 from osgeo import gdal, gdal_array, gdalconst, ogr, osr
 import contones.io
 
-def pixel_to_xy(coords, geotransform):
-    """Convert image pixel/line coordinates to georeferenced x/y, return a
-    generator of two-tuples.
-
-    Arguments:
-    coords -- input coordinates as iterable containing two-tuples/lists such as
-    ((-120, 38), (-121, 39))
-    geotransform -- GDAL GeoTransformation tuple
-    """
-    for x, y in coords:
-        geo_x = geotransform[0] + geotransform[1] * x + geotransform[2] * y
-        geo_y = geotransform[3] + geotransform[4] * x + geotransform[5] * y
-        # Move the coordinate to the center of the pixel.
-        geo_x += geotransform[1] / 2.0
-        geo_y += geotransform[5] / 2.0
-        yield geo_x, geo_y
-
-def xy_to_pixel(coords, gt):
-    """Transform from projection coordinates (Xp,Yp) space to pixel/line
-    (P,L) raster space, based on the provided geotransformation.
-
-    Arguments:
-    coords -- input coordinates as iterable containing two-tuples/lists such as
-    ((-120, 38), (-121, 39))
-    gt -- GDAL GeoTransformation tuple
-    """
-    return [(int((x - gt[0]) / gt[1]), int((y - gt[3]) / gt[5]))
-            for x, y in coords]
-
-def geom_to_array(geom, matrix_size, geotrans):
+def geom_to_array(geom, matrix_size, affine):
     """Converts an OGR polygon to a 2D NumPy array.
 
     Arguments:
     geom -- OGR Polygon or MultiPolygon
     matrix_size -- array size in pixels as a tuple of (width, height)
-    geotrans -- geotransformation as a five element tuple like
-        (-124.625, 0.125, 0.0, 44.0, 0.0, -0.125,).
+    affine -- AffineTransform
     """
     img = Image.new('L', matrix_size, 1)
     draw = ImageDraw.Draw(img)
@@ -53,24 +23,8 @@ def geom_to_array(geom, matrix_size, geotrans):
             g.FlattenTo2D()
         boundary = g.Boundary()
         coords = boundary.GetPoints() if boundary else g.GetPoints()
-        draw.polygon(xy_to_pixel(coords, geotrans), 0)
+        draw.polygon(affine.transform(coords), 0)
     return np.asarray(img)
-
-#def from_bbox(bbox):
-def envelope_asgeom(bbox):
-    #env[0], env[2], env[1], env[3]
-    print 'BBOX:', bbox
-    idxs = ((0, 2), (1, 2), (1, 3), (0, 3), (0, 2))
-    #ring = ogr.Geometry(ogr.wkbLineString)
-    ring = ogr.Geometry(ogr.wkbLinearRing)
-    for idx in idxs:
-        #print bbox[idx[0]], bbox[idx[1]]
-        ring.AddPoint(bbox[idx[0]], bbox[idx[1]])
-    polyg = ogr.Geometry(ogr.wkbPolygon)
-    #polyg.AddGeometry(ring)
-    polyg.AddGeometryDirectly(ring)
-    print 'ENVELOPE:', polyg.GetEnvelope()
-    return polyg
 
 def count_unique(arr):
     """Returns a two-tuple of pixel count and bin value for every unique pixel
@@ -82,47 +36,142 @@ def count_unique(arr):
     return [a.tolist() for a in np.histogram(arr, np.unique(arr))]
 
 
-class GeoTransform(object):
-#class AffineTransform(object):
+class Envelope(object):
 
-    def __init__(self, geotrans_tuple):
-        self.origin = geotrans_tuple[0], geotrans_tuple[3]
-        self.pixel_origin = (0, 0)
-        self.pixel_dest = ()
-        #self.pixel_x_size =
-        #self.pixel_y_size =
-        self.pixel_size = geotrans_tuple[1], geotrans_tuple[5]
-        self.dims = ()
-        #self.window = ()
+    def __init__(self, min_x, min_y, max_x, max_y):
+        self.min_x = min_x
+        self.min_y = min_y
+        self.max_x = max_x
+        self.max_y = max_y
+        if not self.min_x < self.max_x and self.min_y < self.max_y:
+            raise Exception('Invalid coordinate extent')
 
-    def resize(self, extent):
-        #corners = (extent[0], extent[3]), (extent[2], extent[1])
-        corners = (extent[0], extent[3]), (extent[1], extent[2])
-        gt = list(self.as_tuple())
-        #gt = self.as_tuple()
-        ul, lr = xy_to_pixel(corners, gt)
-        #self.px = ul, lr
-        self.pixel_origin = ul
-        self.pixel_dest = lr
-        #new_gt = list(gt)
-        # Set upper left x, y for new GeoTransformation.
-        gt[0], gt[3] = corners[0]
-        self.origin = gt[0], gt[3]
-        # Find the pixel dimensions for the image.
-        #nx, ny = lr[0] - ul[0], lr[1] - ul[1]
-        self.dims = lr[0] - ul[0], lr[1] - ul[1]
-        #return {'geotrans': new_gt, 'dims': (nx, ny), 'ul': ul, 'lr': lr}
-        # Need ul_px,dims, geotrans
+    def __repr__(self):
+        return str(self.tuple)
+
+    @property
+    def ur(self):
+        return self.max_x, self.max_y
 
     #def lower_right(self):
 
-    def reader_args(self):
-        return self.pixel_origin + self.dims
+    @property
+    def lr(self):
+        return self.max_x, self.min_y
 
-    def as_tuple(self):
+    @property
+    def ll(self):
+        return self.min_x, self.min_y
+
+    @property
+    def ul(self):
+        return self.min_x, self.max_y
+
+    @property
+    def tuple(self):
+        return self.ll + self.ur
+
+    @property
+    def height(self):
+        return self.max_y - self.min_y
+
+    @property
+    def width(self):
+        return self.max_x - self.min_x
+
+    def scale(self, factor_x, factor_y=None):
+        """Rescale the envelope by the given factor(s)."""
+        factor_y = factor_x if factor_y is None else factor_y
+        w = self.width * factor_x / 2.0
+        h = self.height * factor_y / 2.0
+        self.min_x += w
+        self.max_x -= w
+        self.min_y += h
+        self.max_y -= h
+
+    def to_geom(self):
+        """Returns an OGR Geometry for this envelope."""
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+        #coords = (self.ll, self.lr, self.ur, self.ul, self.ll)
+        for coord in self.ll, self.lr, self.ur, self.ul, self.ll:
+            ring.AddPoint(*coord)
+        polyg = ogr.Geometry(ogr.wkbPolygon)
+        polyg.AddGeometryDirectly(ring)
+        return polyg
+
+    @staticmethod
+    def from_geom(geom):
+        """Returns an Envelope from an OGR Geometry."""
+        extent = geom.GetEnvelope()
+        # ul, lr
+        #corners = (extent[0], extent[3], extent[1], extent[2])
+        #corners = (extent[0], extent[2], extent[1], extent[3])
+        #return Envelope(*corners)
+        return Envelope(extent[0], extent[2], extent[1], extent[3])
+
+
+class AffineTransform(object):
+
+    def __init__(self, geotrans_tuple):
+        """
+        Arguments:
+        geotrans_tuple -- geotransformation as a five element tuple like
+            (-124.625, 0.125, 0.0, 44.0, 0.0, -0.125,).
+        """
+        # Origin coordinate in projected space.
+        self.origin = geotrans_tuple[0], geotrans_tuple[3]
+        self.pixel_size = geotrans_tuple[1], geotrans_tuple[5]
+
+    def __repr__(self):
+        return str(self.tuple)
+
+    def pixel_to_xy(self, coords):
+        """Convert image pixel/line coordinates to georeferenced x/y, return a
+        generator of two-tuples.
+
+        Arguments:
+        coords -- input coordinates as iterable containing two-tuples/lists such as
+        ((-120, 38), (-121, 39))
+        geotransform -- GDAL GeoTransformation tuple
+        """
+        geotransform = self.tuple
+        for x, y in coords:
+            geo_x = geotransform[0] + geotransform[1] * x + geotransform[2] * y
+            geo_y = geotransform[3] + geotransform[4] * x + geotransform[5] * y
+            # Move the coordinate to the center of the pixel.
+            geo_x += geotransform[1] / 2.0
+            geo_y += geotransform[5] / 2.0
+            yield geo_x, geo_y
+
+    # TODO: work with single coords as well.
+    #def xy_to_pixel(self, coords):
+    def transform(self, coords):
+        """Transform from projection coordinates (Xp,Yp) space to pixel/line
+        (P,L) raster space, based on the provided geotransformation.
+
+        Arguments:
+        coords -- input coordinates as iterable containing two-tuples/lists such as
+        ((-120, 38), (-121, 39))
+        gt -- GDAL GeoTransformation tuple
+        """
+        #return [(int((x - gt[0]) / gt[1]), int((y - gt[3]) / gt[5]))
+        return [(int((x - self.origin[0]) / self.pixel_size[0]),
+                 int((y - self.origin[1]) / self.pixel_size[1]))
+                for x, y in coords]
+
+    @property
+    def tuple(self):
         # Assumes north up images.
         return (self.origin[0], self.pixel_size[0], 0.0, self.origin[1], 0.0,
                 self.pixel_size[1])
+
+
+class ImageData(object):
+
+    def __init__(self):
+        self.origin = (0, 0)
+        self.dims = (0, 0)
+        self.data = ''
 
 
 class Raster(object):
@@ -142,6 +191,7 @@ class Raster(object):
         self._nodata = None
         self._extent = None
         self._io = None
+        self.affine = AffineTransform(self.GetGeoTransform())
         # Closes the GDALDataset
         dataset = None
 
@@ -187,34 +237,49 @@ class Raster(object):
         Arguments:
         bbox -- bounding box as an OGR Polygon
         """
-        envelope = envelope_asgeom(bbox.GetEnvelope())
+        return self._mask(bbox)
+
+    #FIXME: Check geom envelope bounds intersects.
+    def _mask(self, geom):
+        if isinstance(geom, Envelope):
+            geom = geom.to_geom()
+        geom = self._transform_maskgeom(geom)
+        env = Envelope.from_geom(geom)
+        bbox = env.to_geom()
+        ul_px, lr_px = self.affine.transform((env.ul, env.lr))
+        nx = min(lr_px[0] - ul_px[0], self.RasterXSize - ul_px[0])
+        ny = min(lr_px[1] - ul_px[1], self.RasterYSize - ul_px[1])
+        dims = (nx, ny)
+        affine = AffineTransform(self.GetGeoTransform())
+        # Update origin coordinate for the new affine transformation.
+        affine.origin = env.ul
         # Without a simple bounding box, this is really a masking operation
         # rather than a simple crop.
-        if not bbox.Equals(envelope):
-            pixbuf, pixwin = self.mask(bbox)
+        if not geom.Equals(bbox):
+            arr = self.ReadAsArray(*ul_px + dims)
+            mask_arr = geom_to_array(geom, dims, affine)
+            m = np.ma.masked_array(arr, mask=mask_arr)
+            #m.set_fill_value(self.nodata)
+            m = np.ma.masked_values(m, self.nodata)
+            pixbuf = str(np.getbuffer(m.filled()))
         else:
-            bbox = self._transform_maskgeom(bbox)
-            pixwin = self._pixelwin_from_extent(bbox.GetEnvelope())
-            pixbuf = self.ReadRaster(*pixwin['ul_px'] + pixwin['dims'])
-        clone = self.new(pixwin, pixbuf)
-        #clone.WriteRaster(0, 0, pixwin['dims'][0], pixwin['dims'][1], pixbuf)
+            pixbuf = self.ReadRaster(*ul_px + dims)
+        clone = self.new(pixbuf, dims, affine.tuple)
         return clone
 
-    def new(self, pixwin=None, pixeldata=None):
+    def new(self, pixeldata=None, dimensions=None, affine=None):
         """Derive new Raster instances.
 
         Keyword args:
         pixwin -- dict of georef params
         pixeldata -- bytestring containing pixel data
         """
-        pixels_x, pixels_y = (pixwin and pixwin['dims'] or
-            (self.RasterXSize, self.RasterYSize))
+        pixels_x, pixels_y = dimensions or (self.RasterXSize, self.RasterYSize)
         band = self.GetRasterBand(1)
         rcopy = self.io.create(
             pixels_x, pixels_y, self.RasterCount, band.DataType)
         rcopy.SetProjection(self.GetProjection())
-        rcopy.SetGeoTransform(
-            pixwin and pixwin['geotrans'] or self.GetGeoTransform())
+        rcopy.SetGeoTransform(affine or self.GetGeoTransform())
         band_copy = rcopy.GetRasterBand(1)
         band_copy.SetNoDataValue(self.nodata)
         colors = band.GetColorTable()
@@ -223,9 +288,13 @@ class Raster(object):
         # Flush written data
         #band_copy = None
         if pixeldata:
-            args = (0, 0) + pixwin['dims'] + (pixeldata,)
+            args = (0, 0) + dimensions + (pixeldata,)
             rcopy.WriteRaster(*args)
         return rcopy
+
+    #def read(self, size=256):
+        #"""Returns a list of pixel values"""
+        #import struct
 
     # TODO: Decide on envelope tuple format, or maybe just distinguish between
     # .envelope and .extent, create Envelope class.
@@ -242,18 +311,6 @@ class Raster(object):
             self._extent = (origin[0], ll_y, ur_x, origin[1])
         return self._extent
 
-    def _mask(self, geom):
-        geom = self._transform_maskgeom(geom)
-        pixwin = self._pixelwin_from_extent(geom.GetEnvelope())
-        arr = self.ReadAsArray(*pixwin['ul_px'] + pixwin['dims'])
-        if arr is None:
-            raise IOError('Could not read {}'.format(self.GetDescription()))
-        mask_arr = geom_to_array(geom, pixwin['dims'], pixwin['geotrans'])
-        m = np.ma.masked_array(arr, mask=mask_arr)
-        #m.set_fill_value(self.nodata)
-        m = np.ma.masked_values(m, self.nodata)
-        return m, pixwin
-
     def mask(self, geom):
         """Returns a pixel buffer as a str, and a dict including the new
         geotransformation and pixel dimensions.
@@ -261,15 +318,10 @@ class Raster(object):
         Arguments:
         geom -- OGR Polygon or MultiPolygon
         """
-        m, pixwin = self._mask(geom)
-        #TODO: return a new instance here.
-        #return str(np.getbuffer(m.filled())), pixwin
-        pixbuf = str(np.getbuffer(m.filled()))
-        clone = self.new(pixwin, pixbuf)
-        #args = (0, 0) + pixwin['dims'] + (pixbuf,)
-        #clone.WriteRaster(0, 0, pixwin['dims'][0], pixwin['dims'][1], pixbuf)
-        #clone.WriteRaster(*args)
-        return clone
+        return self._mask(geom)
+
+    def masked_array(self):
+        return np.ma.masked_values(self.ReadAsArray(), self.nodata)
 
     def mask_asarray(self, geom):
         """Returns a numpy MaskedArray for the intersecting geometry.
@@ -277,7 +329,10 @@ class Raster(object):
         Arguments:
         geom -- OGR Polygon or MultiPolygon
         """
-        return self._mask(geom)[0]
+        #return self._mask(geom)[0]
+        with self.mask(geom) as rast:
+            m = rast.masked_array()
+        return m
 
     @property
     def nodata(self):
@@ -287,48 +342,6 @@ class Raster(object):
         if self._nodata is None:
             self._nodata = self[1].GetNoDataValue()
         return self._nodata
-
-    def __pixelwin_from_extent(self, extent):
-        """Returns a dict containing a geotransformation tuple with its origin set
-        to the upper left coord from 'extent', pixel dimensions as a tuple, and
-        upper left and lower right coordinates in pixel space.
-
-        This pixel window is useful for calling ReadRaster and ReadAsArray.
-
-        Arguments:
-        extent -- 4-tuple, consisting of (xmin, ymin, xmax, ymax) as returned
-            by the GEOS/OGR Polygon or MultiPolygon 'extent' instance attribute
-        """
-        geotransform = self.GetGeoTransform()
-        #corners = (extent[0], extent[3]), (extent[2], extent[1])
-        corners = (extent[0], extent[3]), (extent[1], extent[2])
-        ul, lr = xy_to_pixel(corners, geotransform)
-        # Origin cannot be outside of raster dimensions.
-        if not (0, 0) <= ul < (self.RasterXSize, self.RasterYSize):
-            raise ValueError('Origin pixel out of bounds: {}'.format(ul))
-        # FIXME: Should not be negative
-        # Find the pixel dimensions for the image based on the corners and
-        # reduce them if they are beyond the maximum image dimensions.
-        nx = min(lr[0] - ul[0], self.RasterXSize - ul[0])
-        ny = min(lr[1] - ul[1], self.RasterYSize - ul[1])
-        new_gt = list(geotransform)
-        # Set upper left x, y origin for new GeoTransformation.
-        new_gt[0], new_gt[3] = corners[0]
-        return {'geotrans': new_gt, 'dims': (nx, ny), 'ul_px': ul, 'lr_px': lr}
-
-    def _pixelwin_from_extent(self, extent):
-        geotrans = GeoTransform(self.GetGeoTransform())
-        print 'TRANSFORM', geotrans
-        #corners = (extent[0], extent[3]), (extent[1], extent[2])
-        geotrans.resize(extent)
-        ul, lr = geotrans.pixel_origin,geotrans.pixel_dest
-        # Find the pixel dimensions for the image based on the corners and
-        # reduce them if they are beyond the maximum image dimensions.
-        nx = min(lr[0] - ul[0], self.RasterXSize - ul[0])
-        ny = min(lr[1] - ul[1], self.RasterYSize - ul[1])
-        #nx = min(geotrans.pixel_dest[0] - geotrans.pixel_origin[0], self.RasterXSize - geotrans.pixel_origin[0])
-        #ny = min(geotrans.pixel_dest[1] - geotrans.pixel_origin[1], self.RasterYSize - geotrans.pixel_origin[1])
-        return {'geotrans': geotrans.as_tuple(), 'dims': (nx, ny), 'ul_px': geotrans.pixel_origin}
 
     def ReadRaster(self, *args, **kwargs):
         """Returns a string of raster data for partial or full extent.
@@ -370,6 +383,7 @@ class Raster(object):
         finally:
             r.close()
 
+    @property
     def shape(self):
         """Returns a tuple containing Y-axis, X-axis pixel counts."""
         return (self.RasterYSize, self.RasterXSize)
