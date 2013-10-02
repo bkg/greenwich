@@ -1,52 +1,17 @@
-import multiprocessing
 import os
 import uuid
 
 from osgeo import gdal
 import contones.raster
 
-def _run_encoder(path, encoder_cls, geom=None):
-    encoder = encoder_cls()
-    with contones.raster.Raster(path) as r:
-        if geom:
-            with r.crop(geom) as cropped:
-                cropped.save(encoder)
-        else:
-            r.save(encoder)
-    buff = encoder.read()
-    # Remove the dataset from memory
-    encoder.unlink()
-    return buff
 
 # TODO: Generalize and replace _run_encoder()
-def convert(inpath, outpath=None):
+def convert(inpath, outpath=None, geom=None):
     if outpath is None:
         outpath = get_imageio_for(outpath)()
-    with contones.raster.Raster(path) as r:
+    with contones.raster.Raster(inpath) as r:
         r.save(outpath)
     return outpath
-
-def run_encoderpool(encoder_cls, pathnames, geom=None, multicore=True):
-    """Run an encoder job using a pool of workers.
-
-    Arguments:
-    path -- path to a GDAL dataset
-    encoder_cls -- encoder class to use, not an instance
-
-    Keyword args:
-    geom -- geometry used to crop raster as a geos.Polygon or None
-    multicore -- true/false, process in parallel by default
-    """
-    encoder = encoder_cls()
-    if not multicore:
-        return [_run_encoder(path, encoder_cls, geom) for path in pathnames]
-    num_workers = multiprocessing.cpu_count()
-    num_workers = num_workers / 2 if num_workers > 4 else num_workers
-    pool = multiprocessing.Pool(num_workers)
-    results = [pool.apply(_run_encoder, (path, encoder_cls, geom,))
-               for path in pathnames]
-    pool.close()
-    return results
 
 def get_imageio_for(path):
     """Returns the io class from a file path or gdal.Driver ShortName."""
@@ -59,6 +24,7 @@ def get_imageio_for(path):
     raise Exception('No IO class for {}'.format(path))
 
 
+# TODO: Work with all GDAL types
 # TODO: These not strictly encoders as they have filepaths, etc. Rename to
 # Transformer, Converter, Driver? Or, FileStore, ImageFile, ImageFileStore?
 #class BaseEncoder(object):
@@ -81,7 +47,7 @@ class BaseImageIO(object):
         return getattr(self.driver, attr)
 
     def create(self, nx, ny, bandcount, datatype):
-        #self._check_exists()
+        self._check_exists()
         ds = self.Create(self.path, nx, ny, bandcount,
                          datatype, self.driver_opts)
         return contones.raster.Raster(ds)
