@@ -1,9 +1,8 @@
 import os
-import itertools
 
 import numpy as np
 from PIL import Image, ImageDraw
-from osgeo import gdal, gdal_array, gdalconst, ogr, osr
+from osgeo import gdal, gdalconst, ogr, osr
 import contones.io
 
 def geom_to_array(geom, matrix_size, affine):
@@ -125,6 +124,9 @@ class AffineTransform(object):
     def __repr__(self):
         return str(self.tuple)
 
+    #def __getitem__(self, idx):
+        #return self.tuple[idx]
+
     def pixel_to_xy(self, coords):
         """Convert image pixel/line coordinates to georeferenced x/y, return a
         generator of two-tuples.
@@ -166,12 +168,39 @@ class AffineTransform(object):
                 self.pixel_size[1])
 
 
-class ImageData(object):
+class SpatialReference(object):
+    def __init__(self, sref):
+        if isinstance(sref, int):
+            sr = osr.SpatialReference()
+            sr.ImportFromEPSG(sref)
+            #self._sref = sr
+        elif isinstance(sref, str):
+            if '+proj=' in sref:
+                sr = osr.SpatialReference()
+                sr.ImportFromProj4(sref)
+                # 0 or 1
+            else:
+                sr = osr.SpatialReference(sref)
+                #self._sref = osr.SpatialReference(sref)
+            # Add EPSG authority if applicable
+            sr.AutoIdentifyEPSG()
+        else:
+            raise TypeError('Cannot create SpatialReference from {}'.format(str(to_sref)))
+        self._sref = sr
+        #self._srid = None
 
-    def __init__(self):
-        self.origin = (0, 0)
-        self.dims = (0, 0)
-        self.data = ''
+    #*** AttributeError: AttributeError("'SpatialReference' object has no attribute 'ExportToWkt'",)
+    def __getattr__(self, attr):
+        return getattr(self._sref, attr)
+
+    @property
+    def srid(self):
+        epsg_id = (self._sref.GetAuthorityCode('GEOGCS') or
+                   self._sref.GetAuthorityCode('GEOGCS'))
+        try:
+            return int(epsg_id)
+        except TypeError:
+            return
 
 
 class Raster(object):
@@ -184,10 +213,6 @@ class Raster(object):
             raise IOError('Could not open %s' % dataset)
         self.ds = dataset
         self.sref = osr.SpatialReference(dataset.GetProjection())
-        try:
-            self.srid = int(self.sref.GetAuthorityCode('PROJCS'))
-        except TypeError:
-            self.srid = None
         self._nodata = None
         self._extent = None
         self._io = None
@@ -210,6 +235,7 @@ class Raster(object):
             raise IndexError('No band for {}'.format(i))
         return band
 
+    #TODO: handle subdataset iteration
     def __iter__(self):
         # Bands are not zero based
         for i in range(1, self.RasterCount + 1):
@@ -271,8 +297,9 @@ class Raster(object):
         """Derive new Raster instances.
 
         Keyword args:
-        pixwin -- dict of georef params
         pixeldata -- bytestring containing pixel data
+        dimensions -- tuple of image size
+        affine -- affine transformation tuple
         """
         pixels_x, pixels_y = dimensions or (self.RasterXSize, self.RasterYSize)
         band = self.GetRasterBand(1)
@@ -280,21 +307,15 @@ class Raster(object):
             pixels_x, pixels_y, self.RasterCount, band.DataType)
         rcopy.SetProjection(self.GetProjection())
         rcopy.SetGeoTransform(affine or self.GetGeoTransform())
-        band_copy = rcopy.GetRasterBand(1)
-        band_copy.SetNoDataValue(self.nodata)
         colors = band.GetColorTable()
-        if colors:
-            band_copy.SetColorTable(colors)
-        # Flush written data
-        #band_copy = None
+        for outband in rcopy:
+            outband.SetNoDataValue(self.nodata)
+            if colors:
+                band_copy.SetColorTable(colors)
         if pixeldata:
             args = (0, 0) + dimensions + (pixeldata,)
             rcopy.WriteRaster(*args)
         return rcopy
-
-    #def read(self, size=256):
-        #"""Returns a list of pixel values"""
-        #import struct
 
     # TODO: Decide on envelope tuple format, or maybe just distinguish between
     # .envelope and .extent, create Envelope class.
@@ -343,6 +364,10 @@ class Raster(object):
             self._nodata = self[1].GetNoDataValue()
         return self._nodata
 
+    #def read(self, size=256):
+        #"""Returns a list of pixel values"""
+        #import struct
+
     def ReadRaster(self, *args, **kwargs):
         """Returns a string of raster data for partial or full extent.
 
@@ -353,18 +378,58 @@ class Raster(object):
             args = (0, 0, self.RasterXSize, self.RasterYSize)
         return self.ds.ReadRaster(*args, **kwargs)
 
-    def resample_to(self, to, dest=None,
-                    interpolation=gdalconst.GRA_NearestNeighbour):
-        dtype = self[1].DataType
-        dest = dest or gdal.GetDriverByName('MEM').Create(
-            '', to.RasterXSize, to.RasterYSize, to.RasterCount, dtype)
-        dest.SetGeoTransform(to.GetGeoTransform())
-        dest.SetProjection(to.GetProjection())
-        band = dest.GetRasterBand(1)
-        band.SetNoDataValue(self.nodata)
-        band = None
+    def resample(self, dimensions,
+                 interpolation=gdalconst.GRA_NearestNeighbour):
+        """Returns a new instance resampled to provided dimensions.
+
+        Arguments:
+        dimensions -- tuple of x,y image dimensions
+        """
+        # Find the scaling factor for pixel size.
+        factors = (dimensions[0] / float(self.RasterXSize),
+                   dimensions[1] / float(self.RasterYSize))
+        affine = AffineTransform(self.GetGeoTransform())
+        affine.pixel_size = (affine.pixel_size[0] * factors[0],
+                             affine.pixel_size[1] * factors[1])
+        # FIXME: affine, not affine.tuple
+        dest = self.new(dimensions=dimensions, affine=affine.tuple)
         # Uses self and dest projection when set to None
-        gdal.ReprojectImage(self, dest, None, None, eResampleAlg=interpolation)
+        gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
+        return dest
+
+    def warp(self, to_sref, interpolation=gdalconst.GRA_NearestNeighbour):
+        """Returns a new reprojected instance.
+
+        Arguments:
+        to_sref -- spatial reference as a proj4 or wkt string, or a
+        SpatialReference
+        """
+        if not isinstance(to_sref, SpatialReference):
+            to_sref = SpatialReference(to_sref)
+        dest_wkt = to_sref.ExportToWkt()
+        dtype = self[1].DataType
+        err_thresh = 0.125
+        # Call AutoCreateWarpedVRT() to fetch default values for target raster
+        # dimensions and geotransform
+        # src_wkt : left to default value --> will use the one from source
+        vrt = gdal.AutoCreateWarpedVRT(self.ds, None, dest_wkt, interpolation,
+                                       err_thresh)
+        dst_xsize = vrt.RasterXSize
+        dst_ysize = vrt.RasterYSize
+        dst_gt = vrt.GetGeoTransform()
+        vrt = None
+        # FIXME: Should not set proj in new()?
+        #dest = self.new(dimensions=(dst_xsize, dst_ysize))
+        dest = self.io.create(dst_xsize, dst_ysize, self.RasterCount, dtype)
+        print 'SELF', self.shape
+        print 'DEST', dest.shape
+        dest.SetGeoTransform(dst_gt)
+        dest.SetProjection(to_sref)
+        for band in dest:
+            band.SetNoDataValue(self.nodata)
+            band = None
+        # Uses self and dest projection when set to None
+        gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
         return dest
 
     def save(self, location):
@@ -382,6 +447,17 @@ class Raster(object):
             r = imgio.copy_from(self)
         finally:
             r.close()
+
+    def SetProjection(self, to_sref):
+        if not isinstance(to_sref, SpatialReference):
+            to_sref = SpatialReference(to_sref)
+        self.sref = to_sref
+        self.ds.SetProjection(to_sref.ExportToWkt())
+
+    def SetGeoTransform(self, geotrans_tuple):
+        """Sets the affine transformation."""
+        self.affine = AffineTransform(geotrans_tuple)
+        self.ds.SetGeoTransform(geotrans_tuple)
 
     @property
     def shape(self):
