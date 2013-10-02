@@ -8,21 +8,8 @@ import unittest
 import numpy as np
 from osgeo import gdal, ogr, osr
 
-#from contones.gdalwrap import (Raster, GeoTIFFEncoder, HFAEncoder,
-#from ..gdalwrap import (Raster, GeoTIFFEncoder, HFAEncoder,
-    #geom_to_array, envelope_asgeom, run_encoderpool)
-from contones.raster import Raster, envelope_asgeom, Envelope, geom_to_array
-from contones.io import GeoTIFFEncoder, HFAEncoder, run_encoderpool
-
-#TESTDIR = os.path.dirname(__file__)
-# create a GEOS geometry from a geojson string.
-#POLYGON = ogr.CreateGeometryFromJson(
-    #'{"type":"Polygon","coordinates":'
-    #'[[[-120,38],[-120,40],[-119,41],[-118,40],[-118,38],[-120,38]]]}')
-#POLYGON.transform(3857)
-#osr.SpatialReference(osr.SRS_WKT_WGS84)
-#POLYGON.TransformTo(3857)
-#sref = osr.SpatialReference()
+from contones.raster import Raster, Envelope, geom_to_array
+from contones.io import GeoTIFFEncoder, HFAEncoder
 
 def create_gdal_datasource(fname):
     """Returns a GDAL Datasource for testing."""
@@ -45,29 +32,28 @@ def create_gdal_datasource(fname):
     return datasource
 
 
-class RasterTestCase(unittest.TestCase):
-    """Test Raster class."""
-
+class RasterTestBase(unittest.TestCase):
     def setUp(self):
         self.f = tempfile.NamedTemporaryFile(suffix='.tif')
         self.ds = Raster(create_gdal_datasource(self.f.name))
+
+
+class RasterTestCase(RasterTestBase):
+    """Test Raster class."""
+
+    def setUp(self):
+        #self.f = tempfile.NamedTemporaryFile(suffix='.tif')
+        #self.ds = Raster(create_gdal_datasource(self.f.name))
+        super(RasterTestCase, self).setUp()
         # FIXME: Which one?!
         #envelope = (-13832951, 5943581, -13638043, 6099967)
         # OGR format xmin, xmax, ymin, ymax
         #envelope = (-13832951, -13638043, 5943581, 6099967)
-        # Get the raster extent and shrink it on all sides by 100 pixels to
-        # test cropping the image.
-        #gt = self.ds.GetGeoTransform()
-        #pixeldist = [i * 100 for i in gt[1], gt[-1]]
-        #envelope = (self.ds.extent[0] + pixeldist[0], self.ds.extent[2] + pixeldist[0],
-                    #self.ds.extent[1] + pixeldist[1], self.ds.extent[3] + pixeldist[1])
         # Shrink envelope
         envelope = Envelope(*self.ds.extent)
         envelope.scale(0.8)
         print 'SCALED', envelope
         self.bbox = envelope.to_geom()
-        #print 'ASGEOM-ENV', envelope.to_geom().GetEnvelope()
-
         sref = osr.SpatialReference()
         sref.ImportFromEPSG(3857)
         self.bbox.AssignSpatialReference(sref)
@@ -135,33 +121,6 @@ class RasterTestCase(unittest.TestCase):
         except OSError:
             pass
 
-    def test_encoders(self):
-        """Test raster encoders."""
-        for Encoder in [GeoTIFFEncoder, HFAEncoder]:
-            encoder_obj = Encoder()
-            with Raster(self.f.name) as r:
-                r.save(encoder_obj)
-                #print binascii.b2a_base64(ds_buffer)
-            #r = Raster(self.f.name)
-            #r.save(encoder_obj)
-            #r.close()
-            data = encoder_obj.read()
-            self.assertIsNotNone(data)
-            self.assertGreater(data, 0)
-
-    def test_encoder_copy(self):
-        """Test copying a raster."""
-        ds_copy = GeoTIFFEncoder().copy_from(self.ds)
-        self.assertIsInstance(ds_copy, Raster)
-        # Make sure we get the same number of raster bands back.
-        self.assertEqual(*map(len, (self.ds, ds_copy)))
-
-    def test_encoderpool(self):
-        encoded = run_encoderpool(HFAEncoder, [self.f.name, self.f.name])
-        self.assertIsInstance(encoded, list)
-        self.assertEqual(len(encoded), 2)
-        self.assertIsInstance(encoded[0], str)
-
     def test_rasterize_geom(self):
         return True
         g = self.geom.Clone()
@@ -183,3 +142,43 @@ class RasterTestCase(unittest.TestCase):
         self.assertEqual(tuple(reversed(arr.shape)), pixwin['dims'])
         # We should have 1 or True in the binary array.
         self.assertTrue(arr.any())
+
+    def test_warp(self):
+        epsg_id = 4326
+        d = self.ds.warp(epsg_id)
+        self.assertEqual(d.sref.srid, epsg_id)
+
+    def test_resample(self):
+        # Half the original resolution
+        dims = tuple([i / 2 for i in self.ds.shape])
+        output = self.ds.resample(dims)
+        self.assertEqual(output.shape, dims)
+
+    def test_new(self):
+        dcopy = self.ds.new()
+        self.assertEqual(dcopy.nodata, self.ds.nodata)
+        self.assertEqual(dcopy.shape, self.ds.shape)
+
+
+class ImageIOTestCase(RasterTestBase):
+    def test_encoders(self):
+        """Test raster encoders."""
+        for Encoder in [GeoTIFFEncoder, HFAEncoder]:
+            encoder_obj = Encoder()
+            with Raster(self.f.name) as r:
+                r.save(encoder_obj)
+                #print binascii.b2a_base64(ds_buffer)
+            #r = Raster(self.f.name)
+            #r.save(encoder_obj)
+            #r.close()
+            data = encoder_obj.read()
+            self.assertIsNotNone(data)
+            self.assertGreater(data, 0)
+
+    def test_encoder_copy(self):
+        """Test copying a raster."""
+        ds_copy = GeoTIFFEncoder().copy_from(self.ds)
+        self.assertIsInstance(ds_copy, Raster)
+        # Make sure we get the same number of raster bands back.
+        self.assertEqual(*map(len, (self.ds, ds_copy)))
+
