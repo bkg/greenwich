@@ -8,7 +8,7 @@ import unittest
 import numpy as np
 from osgeo import gdal, ogr, osr
 
-from contones.raster import Raster, Envelope, geom_to_array
+from contones.raster import Raster, Envelope, SpatialReference, geom_to_array
 from contones.io import GeoTIFFEncoder, HFAEncoder
 
 def create_gdal_datasource(fname):
@@ -181,4 +181,21 @@ class ImageIOTestCase(RasterTestBase):
         self.assertIsInstance(ds_copy, Raster)
         # Make sure we get the same number of raster bands back.
         self.assertEqual(*map(len, (self.ds, ds_copy)))
+
+
+class SpatialReferenceTestCase(unittest.TestCase):
+
+    def test_wkt(self):
+        sref = SpatialReference(osr.SRS_WKT_WGS84)
+        self.assertEqual(sref.wkt, osr.SRS_WKT_WGS84)
+
+    def test_epsg(self):
+        epsg_id = 3310
+        from_epsg = SpatialReference(epsg_id)
+        self.assertEqual(from_epsg.srid, epsg_id)
+
+    def test_proj4(self):
+        p4 = SpatialReference(2805).ExportToProj4()
+        from_proj4 = SpatialReference(p4)
+        self.assertEqual(from_proj4.proj4, p4)
 
