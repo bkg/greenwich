@@ -1,5 +1,3 @@
-import os
-
 import numpy as np
 from PIL import Image, ImageDraw
 from osgeo import gdal, gdalconst, ogr, osr
@@ -36,6 +34,11 @@ def count_unique(arr):
 
 
 class Envelope(object):
+    """Rectangular bounding extent.
+
+    This closely resembles OGREnvelope which is not included in the SWIG
+    bindings.
+    """
 
     def __init__(self, min_x, min_y, max_x, max_y):
         self.min_x = min_x
@@ -48,26 +51,34 @@ class Envelope(object):
     def __repr__(self):
         return str(self.tuple)
 
+    #def __getitem__(self, idx):
+        #return self.tuple[idx]
+
     @property
     def ur(self):
+        """Returns the upper right coordinate."""
         return self.max_x, self.max_y
 
     #def lower_right(self):
 
     @property
     def lr(self):
+        """Returns the lower right coordinate."""
         return self.max_x, self.min_y
 
     @property
     def ll(self):
+        """Returns the lower left coordinate."""
         return self.min_x, self.min_y
 
     @property
     def ul(self):
+        """Returns the upper left coordinate."""
         return self.min_x, self.max_y
 
     @property
     def tuple(self):
+        """Returns the maximum extent as a tuple."""
         return self.ll + self.ur
 
     @property
@@ -110,6 +121,7 @@ class Envelope(object):
 
 
 class AffineTransform(object):
+    """Affine transformation between projected and pixel coordinate spaces."""
 
     def __init__(self, geotrans_tuple):
         """
@@ -124,17 +136,14 @@ class AffineTransform(object):
     def __repr__(self):
         return str(self.tuple)
 
-    #def __getitem__(self, idx):
-        #return self.tuple[idx]
-
-    def pixel_to_xy(self, coords):
+    #def project_grid_coords(self, coords):
+    def transform_to_projected(self, coords):
         """Convert image pixel/line coordinates to georeferenced x/y, return a
         generator of two-tuples.
 
         Arguments:
         coords -- input coordinates as iterable containing two-tuples/lists such as
         ((-120, 38), (-121, 39))
-        geotransform -- GDAL GeoTransformation tuple
         """
         geotransform = self.tuple
         for x, y in coords:
@@ -146,7 +155,6 @@ class AffineTransform(object):
             yield geo_x, geo_y
 
     # TODO: work with single coords as well.
-    #def xy_to_pixel(self, coords):
     def transform(self, coords):
         """Transform from projection coordinates (Xp,Yp) space to pixel/line
         (P,L) raster space, based on the provided geotransformation.
@@ -154,7 +162,6 @@ class AffineTransform(object):
         Arguments:
         coords -- input coordinates as iterable containing two-tuples/lists such as
         ((-120, 38), (-121, 39))
-        gt -- GDAL GeoTransformation tuple
         """
         #return [(int((x - gt[0]) / gt[1]), int((y - gt[3]) / gt[5]))
         return [(int((x - self.origin[0]) / self.pixel_size[0]),
@@ -169,38 +176,50 @@ class AffineTransform(object):
 
 
 class SpatialReference(object):
+    """Wraps osr.SpatialReference with flexible instance creation."""
+
     def __init__(self, sref):
         if isinstance(sref, int):
             sr = osr.SpatialReference()
             sr.ImportFromEPSG(sref)
-            #self._sref = sr
         elif isinstance(sref, str):
             if '+proj=' in sref:
                 sr = osr.SpatialReference()
                 sr.ImportFromProj4(sref)
-                # 0 or 1
             else:
                 sr = osr.SpatialReference(sref)
-                #self._sref = osr.SpatialReference(sref)
             # Add EPSG authority if applicable
             sr.AutoIdentifyEPSG()
         else:
-            raise TypeError('Cannot create SpatialReference from {}'.format(str(to_sref)))
+            raise TypeError('Cannot create SpatialReference '
+                            'from {}'.format(str(sref)))
         self._sref = sr
-        #self._srid = None
 
-    #*** AttributeError: AttributeError("'SpatialReference' object has no attribute 'ExportToWkt'",)
     def __getattr__(self, attr):
         return getattr(self._sref, attr)
 
+    def __repr__(self):
+        return self.wkt
+
     @property
     def srid(self):
-        epsg_id = (self._sref.GetAuthorityCode('GEOGCS') or
+        """Returns the EPSG ID as int if it exists."""
+        epsg_id = (self._sref.GetAuthorityCode('PROJCS') or
                    self._sref.GetAuthorityCode('GEOGCS'))
         try:
             return int(epsg_id)
         except TypeError:
             return
+
+    @property
+    def wkt(self):
+        """Returns this projection in WKT format."""
+        return self.ExportToWkt()
+
+    @property
+    def proj4(self):
+        """Returns this projection as a proj4 string."""
+        return self.ExportToProj4()
 
 
 class Raster(object):
@@ -251,19 +270,46 @@ class Raster(object):
     def __len__(self):
         return self.RasterCount
 
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__,
+                               self.ds.GetDescription())
+
     def close(self):
         """Close the GDAL dataset."""
         # De-ref the GDAL Dataset to completely close it.
         self.ds = None
 
     def crop(self, bbox):
-        """Returns a pixel buffer as str, pixel dimensions, and
-        geotransformation tuple.
+        """Returns a new raster instance cropped to a bounding box.
 
         Arguments:
         bbox -- bounding box as an OGR Polygon
         """
         return self._mask(bbox)
+
+    # TODO: Decide on envelope tuple format, or maybe just distinguish between
+    # .envelope and .extent, create Envelope class.
+    @property
+    def extent(self):
+        """Returns the minimum bounding rectangle as a tuple of min X, min Y,
+        max X, max Y.
+        """
+        if self._extent is None:
+            gt = self.GetGeoTransform()
+            origin = gt[0], gt[3]
+            ur_x = origin[0] + (self.RasterXSize * gt[1])
+            ll_y = origin[1] + (self.RasterYSize * gt[5])
+            self._extent = (origin[0], ll_y, ur_x, origin[1])
+        return self._extent
+
+    @property
+    def io(self):
+        """Returns the underlying ImageIO instance."""
+        if self._io is None:
+            d = self.ds.GetDriver()
+            ImageIO = contones.io.get_imageio_for(d.ShortName)
+            self._io = ImageIO()
+        return self._io
 
     #FIXME: Check geom envelope bounds intersects.
     def _mask(self, geom):
@@ -311,38 +357,19 @@ class Raster(object):
         for outband in rcopy:
             outband.SetNoDataValue(self.nodata)
             if colors:
-                band_copy.SetColorTable(colors)
+                outband.SetColorTable(colors)
         if pixeldata:
             args = (0, 0) + dimensions + (pixeldata,)
             rcopy.WriteRaster(*args)
         return rcopy
 
-    # TODO: Decide on envelope tuple format, or maybe just distinguish between
-    # .envelope and .extent, create Envelope class.
-    @property
-    def extent(self):
-        """Returns the minimum bounding rectangle as a tuple of min X, min Y,
-        max X, max Y.
-        """
-        if self._extent is None:
-            gt = self.GetGeoTransform()
-            origin = gt[0], gt[3]
-            ur_x = origin[0] + (self.RasterXSize * gt[1])
-            ll_y = origin[1] + (self.RasterYSize * gt[5])
-            self._extent = (origin[0], ll_y, ur_x, origin[1])
-        return self._extent
-
     def mask(self, geom):
-        """Returns a pixel buffer as a str, and a dict including the new
-        geotransformation and pixel dimensions.
+        """Returns a new raster instance masked to a particular geometry.
 
         Arguments:
         geom -- OGR Polygon or MultiPolygon
         """
         return self._mask(geom)
-
-    def masked_array(self):
-        return np.ma.masked_values(self.ReadAsArray(), self.nodata)
 
     def mask_asarray(self, geom):
         """Returns a numpy MaskedArray for the intersecting geometry.
@@ -354,6 +381,10 @@ class Raster(object):
         with self.mask(geom) as rast:
             m = rast.masked_array()
         return m
+
+    def masked_array(self):
+        """Returns a MaskedArray using nodata values."""
+        return np.ma.masked_values(self.ReadAsArray(), self.nodata)
 
     @property
     def nodata(self):
@@ -463,14 +494,6 @@ class Raster(object):
     def shape(self):
         """Returns a tuple containing Y-axis, X-axis pixel counts."""
         return (self.RasterYSize, self.RasterXSize)
-
-    @property
-    def io(self):
-        if self._io is None:
-            d = self.ds.GetDriver()
-            ImageIO = contones.io.get_imageio_for(d.ShortName)
-            self._io = ImageIO()
-        return self._io
 
     def _transform_maskgeom(self, geom):
         geom_sref = geom.GetSpatialReference()
