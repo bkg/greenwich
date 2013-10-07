@@ -81,6 +81,42 @@ class BaseImageIO(object):
         gdal.Unlink(self.path)
 
 
+#class ImageIO(object):
+class ImageIO(BaseImageIO):
+    # GDAL driver defaults
+    drivers = {'GTiff': ('tif', ['COMPRESS=PACKBITS']),
+               'HFA': ('img', ['COMPRESSED=YES'])}
+
+    def __init__(self, path=None, driver=None):
+        if path and driver is None:
+            driver = self.driver_for_path(path)
+        #if not driver:
+        if not isinstance(driver, gdal.Driver):
+            raise Exception('No GDAL driver for {}'.format(path))
+        self.driver = driver
+        opts = self.drivers.get(self.driver.ShortName)
+        self.driver_opts = opts[1] if opts else []
+        self.path = path or self.get_tmpname()
+        self._ext = None
+
+    @property
+    def ext(self):
+        #k = self.driver.ShortName
+        #self.defaults.get(k, k.lower().replace(' ', ''))
+        try:
+            #self.ext = opts[0]
+            #self.ext = self.driver_opts[0]
+            self._ext = self.drivers[self.driver.ShortName][0]
+        except KeyError:
+            self._ext = self.driver.ShortName.lower().replace(' ', '')
+        return self._ext
+
+    def driver_for_path(self, path):
+        extsep = os.path.extsep
+        ext = path.rsplit(extsep, 1)[-1] if extsep in path else path
+        return gdal.GetDriverByName(self.drivers.get(ext, 'GTiff'))
+
+
 class GeoTIFFEncoder(BaseImageIO):
     """GeoTIFF raster encoder."""
     driver_name = 'GTiff'
