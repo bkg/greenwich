@@ -8,7 +8,7 @@ import numpy as np
 from osgeo import gdal, ogr, osr
 
 from contones.raster import Raster, Envelope, SpatialReference, geom_to_array
-from contones.io import ImageIO
+from contones.io import ImageIO, driver_for_path
 
 def create_gdal_datasource(fname):
     """Returns a GDAL Datasource for testing."""
@@ -166,7 +166,7 @@ class ImageIOTestCase(RasterTestBase):
             io_obj = ImageIO(driver=dname)
             with Raster(self.f.name) as r:
                 r.save(io_obj)
-            data = io_obj.read()
+            data = io_obj.getvalue()
             self.assertIsNotNone(data)
             self.assertGreater(data, 0)
 
@@ -174,7 +174,6 @@ class ImageIOTestCase(RasterTestBase):
         """Test copying a raster."""
         ds_copy = ImageIO(driver='PNG').copy_from(self.ds)
         self.assertIsInstance(ds_copy, Raster)
-        #self.assertEqual(ds_copy.io.ext, 'tif')
         self.assertEqual(ds_copy.io.ext, 'png')
         # Make sure we get the same number of raster bands back.
         self.assertEqual(*map(len, (self.ds, ds_copy)))
@@ -191,8 +190,8 @@ class ImageIOTestCase(RasterTestBase):
         f.close()
 
     def test_driver_for_path(self):
-        imgio = ImageIO()
-        self.assertEqual(imgio.driver_for_path('test.jpg').ShortName, 'JPEG')
+        self.assertEqual(driver_for_path('test.jpg').ShortName, 'JPEG')
+        self.assertEqual(driver_for_path('test.zzyyxx'), None)
 
 
 class SpatialReferenceTestCase(unittest.TestCase):

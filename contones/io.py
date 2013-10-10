@@ -15,12 +15,21 @@ def available_drivers():
         d = None
     return drivers
 
-def convert(inpath, outpath=None, geom=None):
-    if outpath is None:
-        outpath = ImageIO()
-    with contones.raster.Raster(inpath) as r:
-        r.save(outpath)
-    return outpath
+def driver_for_path(path):
+    """Returns the gdal.Driver for a path or None based on the file extension.
+
+    Arguments:
+    path -- file path as str with a GDAL support file extension
+    """
+    path = path or ''
+    extsep = os.path.extsep
+    ext = (path.rsplit(extsep, 1)[-1] if extsep in path else path).lower()
+    avail = available_drivers() if ext else {}
+    for k, v in avail.items():
+        avail_ext = v.get('DMD_EXTENSION')
+        if ext == avail_ext:
+            return gdal.GetDriverByName(k)
+    return None
 
 
 #class ImageFile(object):
@@ -42,10 +51,13 @@ class ImageIO(object):
         dataset like '/data/test.tif'
         driver -- GDALDriver instance
         """
+        # Use geotiff as the default when path and driver are not provided.
+        if not any((path, driver)):
+            driver = 'GTiff'
         if isinstance(driver, str):
             driver = gdal.GetDriverByName(driver)
         if driver is None:
-            driver = self.driver_for_path(path)
+            driver = driver_for_path(path)
         if not isinstance(driver, gdal.Driver):
             raise Exception('No GDAL driver for {}'.format(path))
         self.driver = driver
@@ -86,12 +98,8 @@ class ImageIO(object):
                              options=options or self.driver_opts)
         return contones.raster.Raster(ds)
 
-    # Look at io module classes and interfaces.
-    # io.BytesIO.getvalue() always returns the entire buffer where read()
-    # depends on the position like seek(0) read()
-    #def getvalue(self):
-    def read(self, size=0):
-        """Returns the raster data buffer as str."""
+    def getvalue(self):
+        """Returns the raster data buffer as a byte string."""
         f = gdal.VSIFOpenL(self.path, 'rb')
         if f is None:
             raise IOError('Could not read from {}'.format(self.path))
@@ -115,21 +123,3 @@ class ImageIO(object):
     @property
     def mimetype(self):
         return self.info.get('DMD_MIMETYPE', 'application/octet-stream')
-
-    def driver_for_path(self, path):
-        """Returns the gdal.Driver for a path based on the file extension.
-
-        Arguments:
-        path -- file path as str with a GDAL support file extension
-        """
-        path = path or ''
-        extsep = os.path.extsep
-        ext = (path.rsplit(extsep, 1)[-1] if extsep in path else path).lower()
-        avail = available_drivers() if ext else {}
-        drivername = 'GTiff'
-        for k, v in avail.items():
-            avail_ext = v.get('DMD_EXTENSION')
-            if ext == avail_ext:
-                drivername = k
-                break
-        return gdal.GetDriverByName(drivername)
