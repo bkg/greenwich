@@ -5,6 +5,9 @@ from osgeo import gdal
 import contones.raster
 
 def available_drivers():
+    """Returns a dictionary of enabled GDAL Driver metadata keyed by the
+    'ShortName' attribute.
+    """
     drivers = {}
     for i in range(gdal.GetDriverCount()):
         d = gdal.GetDriver(i)
@@ -20,9 +23,12 @@ def convert(inpath, outpath=None, geom=None):
     return outpath
 
 
+#class ImageFile(object):
 class ImageIO(object):
-    """Base encoder for GDAL Datasets derived from GDAL.Driver, used mainly
-    for raster image encoding. New raster formats should subclass this.
+    """File or memory (VSIMEM) backed IO for GDAL datasets.
+
+    GDAL does not integrate with file-like objects but provides its own
+    mechanisms for handling IO.
     """
     _vsimem = '/vsimem'
     # GDAL driver default creation options.
@@ -44,32 +50,46 @@ class ImageIO(object):
             raise Exception('No GDAL driver for {}'.format(path))
         self.driver = driver
         self.driver_opts = self.drivers.get(self.ext, [])
-        self.path = path or self.get_tmpname()
+        self.path = path or self._tempname()
 
     def __getattr__(self, attr):
         return getattr(self.driver, attr)
 
-    def create(self, nx, ny, bandcount, datatype, options=None):
-        self._check_exists()
+    def __repr__(self):
+        return '{}: {}'.format(self.__class__.__name__, str(self.info))
+
+    def create(self, nx, ny, bandcount=1, datatype=gdal.GDT_Byte,
+               options=None):
+        """Returns a new Raster instance.
+
+        gdal.Driver.Create() does not support all formats.
+        """
+        if nx < 0 or ny < 0:
+            raise ValueError('Size cannot be negative')
         ds = self.Create(self.path, nx, ny, bandcount,
                          datatype, options or self.driver_opts)
+        if not ds:
+            raise Exception(
+                'Could not create {} using {}'.format(self.path, str(self)))
         return contones.raster.Raster(ds)
 
-    #def vsipath(self):
-    def get_tmpname(self):
+    def _tempname(self):
         basename = '{}.{}'.format(str(uuid.uuid4()), self.ext)
         return os.path.join(self._vsimem, basename)
 
-    def _check_exists(self):
-        if os.path.exists(self.path):
-            raise IOError('{} already exists'.format(self.path))
-
     def copy_from(self, dataset, options=None):
-        #self._check_exists()
+        """Returns a copied Raster instance."""
+        if self.path == dataset.GetDescription():
+            raise ValueError(
+                'Input and output are the same location: {}'.format(self.path))
         ds = self.CreateCopy(self.path, dataset.ds,
                              options=options or self.driver_opts)
         return contones.raster.Raster(ds)
 
+    # Look at io module classes and interfaces.
+    # io.BytesIO.getvalue() always returns the entire buffer where read()
+    # depends on the position like seek(0) read()
+    #def getvalue(self):
     def read(self, size=0):
         """Returns the raster data buffer as str."""
         f = gdal.VSIFOpenL(self.path, 'rb')
@@ -81,6 +101,7 @@ class ImageIO(object):
         return data
 
     def unlink(self):
+        """Delete the file or vsimem path."""
         gdal.Unlink(self.path)
 
     @property
@@ -96,6 +117,11 @@ class ImageIO(object):
         return self.info.get('DMD_MIMETYPE', 'application/octet-stream')
 
     def driver_for_path(self, path):
+        """Returns the gdal.Driver for a path based on the file extension.
+
+        Arguments:
+        path -- file path as str with a GDAL support file extension
+        """
         path = path or ''
         extsep = os.path.extsep
         ext = (path.rsplit(extsep, 1)[-1] if extsep in path else path).lower()
