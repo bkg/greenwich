@@ -1,5 +1,4 @@
 import os
-import binascii
 import glob
 import hashlib
 import tempfile
@@ -9,7 +8,7 @@ import numpy as np
 from osgeo import gdal, ogr, osr
 
 from contones.raster import Raster, Envelope, SpatialReference, geom_to_array
-from contones.io import GeoTIFFEncoder, HFAEncoder
+from contones.io import ImageIO
 
 def create_gdal_datasource(fname):
     """Returns a GDAL Datasource for testing."""
@@ -161,26 +160,39 @@ class RasterTestCase(RasterTestBase):
 
 
 class ImageIOTestCase(RasterTestBase):
-    def test_encoders(self):
-        """Test raster encoders."""
-        for Encoder in [GeoTIFFEncoder, HFAEncoder]:
-            encoder_obj = Encoder()
+    def test_read(self):
+        """Test ImageIO reading."""
+        for dname in 'GTiff', 'HFA':
+            io_obj = ImageIO(driver=dname)
             with Raster(self.f.name) as r:
-                r.save(encoder_obj)
-                #print binascii.b2a_base64(ds_buffer)
-            #r = Raster(self.f.name)
-            #r.save(encoder_obj)
-            #r.close()
-            data = encoder_obj.read()
+                r.save(io_obj)
+            data = io_obj.read()
             self.assertIsNotNone(data)
             self.assertGreater(data, 0)
 
-    def test_encoder_copy(self):
+    def test_copy_from(self):
         """Test copying a raster."""
-        ds_copy = GeoTIFFEncoder().copy_from(self.ds)
+        ds_copy = ImageIO(driver='PNG').copy_from(self.ds)
         self.assertIsInstance(ds_copy, Raster)
+        #self.assertEqual(ds_copy.io.ext, 'tif')
+        self.assertEqual(ds_copy.io.ext, 'png')
         # Make sure we get the same number of raster bands back.
         self.assertEqual(*map(len, (self.ds, ds_copy)))
+
+    def test_create(self):
+        f = tempfile.NamedTemporaryFile(suffix='.img')
+        imgio = ImageIO(f.name)
+        with self.assertRaises(ValueError):
+            r = imgio.create(-10, -10)
+        size = (10, 10)
+        rast = imgio.create(*size)
+        self.assertEqual(rast.shape, size)
+        self.assertEqual(rast.io.ext, 'img')
+        f.close()
+
+    def test_driver_for_path(self):
+        imgio = ImageIO()
+        self.assertEqual(imgio.driver_for_path('test.jpg').ShortName, 'JPEG')
 
 
 class SpatialReferenceTestCase(unittest.TestCase):
