@@ -120,27 +120,13 @@ class RasterTestCase(RasterTestBase):
         except OSError:
             pass
 
-    def test_rasterize_geom(self):
-        return True
+    def test_geom_to_array(self):
         g = self.geom.Clone()
         g.TransformTo(self.ds.sref)
-        # Test the pixel window based on the geometry extent.
-        #pixwin = self.ds._pixelwin_from_extent(g.extent)
-        pixwin = self.ds._pixelwin_from_extent(g.GetEnvelope())
-        self.assertGreater(pixwin['lr_px'], pixwin['ul_px'])
-        # just testing the first dimension
-        self.assertEqual(
-            pixwin['lr_px'][0] - pixwin['ul_px'][0], pixwin['dims'][0])
-        # TODO: Could use gdal.RasterizeLayer(), but need a good way to
-        # OGRLayerShadow like gdal.RasterizeLayer(memds, [1],
-        # ogr.Geometry(wkb=str(obj.geometry.wkb)), burn_values=[1])
-        # The above may be faster than PIL.
-        # Now do the rasterization
-        arr = geom_to_array(
-            self.geom, pixwin['dims'], pixwin['geotrans'])
-        self.assertEqual(tuple(reversed(arr.shape)), pixwin['dims'])
-        # We should have 1 or True in the binary array.
-        self.assertTrue(arr.any())
+        arr = geom_to_array(g, self.ds.shape, self.ds.affine)
+        self.assertEqual(arr.shape, self.ds.shape)
+        self.assertEqual(arr.min(), 0)
+        self.assertEqual(arr.max(), 1)
 
     def test_warp(self):
         epsg_id = 4326
