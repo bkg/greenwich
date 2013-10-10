@@ -1,3 +1,4 @@
+"""Raster image IO handling"""
 import os
 import uuid
 
