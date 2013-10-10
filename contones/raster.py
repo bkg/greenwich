@@ -36,7 +36,7 @@ def count_unique(arr):
 class Envelope(object):
     """Rectangular bounding extent.
 
-    This closely resembles OGREnvelope which is not included in the SWIG
+    This class closely resembles OGREnvelope which is not included in the SWIG
     bindings.
     """
 
@@ -50,9 +50,6 @@ class Envelope(object):
 
     def __repr__(self):
         return str(self.tuple)
-
-    #def __getitem__(self, idx):
-        #return self.tuple[idx]
 
     @property
     def ur(self):
@@ -131,10 +128,14 @@ class AffineTransform(object):
         """
         # Origin coordinate in projected space.
         self.origin = geotrans_tuple[0], geotrans_tuple[3]
-        self.pixel_size = geotrans_tuple[1], geotrans_tuple[5]
+        self.scale_x = geotrans_tuple[1]
+        self.scale_y = geotrans_tuple[5]
 
     def __repr__(self):
         return str(self.tuple)
+
+    #def __getitem__(self, idx):
+        #return self.tuple[idx]
 
     #def project_grid_coords(self, coords):
     def transform_to_projected(self, coords):
@@ -142,8 +143,8 @@ class AffineTransform(object):
         generator of two-tuples.
 
         Arguments:
-        coords -- input coordinates as iterable containing two-tuples/lists such as
-        ((-120, 38), (-121, 39))
+        coords -- input coordinates as iterable containing two-tuples/lists
+        such as ((0, 0), (10, 10))
         """
         geotransform = self.tuple
         for x, y in coords:
@@ -160,19 +161,21 @@ class AffineTransform(object):
         (P,L) raster space, based on the provided geotransformation.
 
         Arguments:
-        coords -- input coordinates as iterable containing two-tuples/lists such as
-        ((-120, 38), (-121, 39))
+        coords -- input coordinates as iterable containing two-tuples/lists
+        such as ((-120, 38), (-121, 39))
         """
-        #return [(int((x - gt[0]) / gt[1]), int((y - gt[3]) / gt[5]))
-        return [(int((x - self.origin[0]) / self.pixel_size[0]),
-                 int((y - self.origin[1]) / self.pixel_size[1]))
+        # Use local vars for better performance here.
+        origin = self.origin
+        sx = self.scale_x
+        sy = self.scale_y
+        return [(int((x - origin[0]) / sx), int((y - origin[1]) / sy))
                 for x, y in coords]
 
     @property
     def tuple(self):
         # Assumes north up images.
-        return (self.origin[0], self.pixel_size[0], 0.0, self.origin[1], 0.0,
-                self.pixel_size[1])
+        return (self.origin[0], self.scale_x, 0.0, self.origin[1], 0.0,
+                self.scale_y)
 
 
 class SpatialReference(object):
@@ -295,10 +298,9 @@ class Raster(object):
         max X, max Y.
         """
         if self._extent is None:
-            gt = self.GetGeoTransform()
-            origin = gt[0], gt[3]
-            ur_x = origin[0] + (self.RasterXSize * gt[1])
-            ll_y = origin[1] + (self.RasterYSize * gt[5])
+            origin = self.affine.origin
+            ur_x = origin[0] + (self.RasterXSize * self.affine.scale_x)
+            ll_y = origin[1] + (self.RasterYSize * self.affine.scale_y)
             self._extent = (origin[0], ll_y, ur_x, origin[1])
         return self._extent
 
@@ -306,9 +308,8 @@ class Raster(object):
     def io(self):
         """Returns the underlying ImageIO instance."""
         if self._io is None:
-            d = self.ds.GetDriver()
-            ImageIO = contones.io.get_imageio_for(d.ShortName)
-            self._io = ImageIO()
+            # TODO: Move to __init__, not @property
+            self._io = contones.io.ImageIO(driver=self.ds.GetDriver())
         return self._io
 
     #FIXME: Check geom envelope bounds intersects.
@@ -316,6 +317,7 @@ class Raster(object):
         if isinstance(geom, Envelope):
             geom = geom.to_geom()
         geom = self._transform_maskgeom(geom)
+        #if not geom.intersects(self.extent):
         env = Envelope.from_geom(geom)
         bbox = env.to_geom()
         ul_px, lr_px = self.affine.transform((env.ul, env.lr))
@@ -377,7 +379,6 @@ class Raster(object):
         Arguments:
         geom -- OGR Polygon or MultiPolygon
         """
-        #return self._mask(geom)[0]
         with self.mask(geom) as rast:
             m = rast.masked_array()
         return m
@@ -397,7 +398,10 @@ class Raster(object):
 
     #def read(self, size=256):
         #"""Returns a list of pixel values"""
+    #def getdata(self, band=None):
         #import struct
+        #data = self.ReadRaster()
+        #return struct.unpack('B' * self.RasterXSize * self.RasterYSize, data)
 
     def ReadRaster(self, *args, **kwargs):
         """Returns a string of raster data for partial or full extent.
@@ -420,8 +424,8 @@ class Raster(object):
         factors = (dimensions[0] / float(self.RasterXSize),
                    dimensions[1] / float(self.RasterYSize))
         affine = AffineTransform(self.GetGeoTransform())
-        affine.pixel_size = (affine.pixel_size[0] * factors[0],
-                             affine.pixel_size[1] * factors[1])
+        affine.scale_x *= factors[0]
+        affine.scale_y *= factors[1]
         # FIXME: affine, not affine.tuple
         dest = self.new(dimensions=dimensions, affine=affine.tuple)
         # Uses self and dest projection when set to None
@@ -452,8 +456,6 @@ class Raster(object):
         # FIXME: Should not set proj in new()?
         #dest = self.new(dimensions=(dst_xsize, dst_ysize))
         dest = self.io.create(dst_xsize, dst_ysize, self.RasterCount, dtype)
-        print 'SELF', self.shape
-        print 'DEST', dest.shape
         dest.SetGeoTransform(dst_gt)
         dest.SetProjection(to_sref)
         for band in dest:
@@ -464,17 +466,16 @@ class Raster(object):
         return dest
 
     def save(self, location):
-        """Save this instance to the path and format from location.
+        """Save this instance to the path and format given by location.
 
         Arguments:
-        location -- str or instance of a BaseImageIO subclass
+        location -- str or ImageIO instance
         """
         try:
             r = location.copy_from(self)
         except AttributeError:
             path = getattr(location, 'name', location)
-            ImageIO = contones.io.get_imageio_for(path)
-            imgio = ImageIO(path)
+            imgio = contones.io.ImageIO(path)
             r = imgio.copy_from(self)
         finally:
             r.close()
