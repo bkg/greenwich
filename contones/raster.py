@@ -1,7 +1,7 @@
 """Raster data handling"""
 import numpy as np
 from PIL import Image, ImageDraw
-from osgeo import gdal, gdalconst, osr
+from osgeo import gdal, gdalconst
 
 import contones.io
 from contones.geometry import Envelope
@@ -107,7 +107,7 @@ class Raster(object):
         if dataset is None:
             raise IOError('Could not open %s' % dataset)
         self.ds = dataset
-        self.sref = osr.SpatialReference(dataset.GetProjection())
+        self.sref = SpatialReference(dataset.GetProjection())
         self._nodata = None
         self._extent = None
         self._io = None
@@ -312,7 +312,7 @@ class Raster(object):
         to_sref -- spatial reference as a proj4 or wkt string, or a
         SpatialReference
         """
-        if not isinstance(to_sref, SpatialReference):
+        if not hasattr(to_sref, 'ExportToWkt'):
             to_sref = SpatialReference(to_sref)
         dest_wkt = to_sref.ExportToWkt()
         dtype = self[1].DataType
@@ -354,7 +354,7 @@ class Raster(object):
             r.close()
 
     def SetProjection(self, to_sref):
-        if not isinstance(to_sref, SpatialReference):
+        if not hasattr(to_sref, 'ExportToWkt'):
             to_sref = SpatialReference(to_sref)
         self.sref = to_sref
         self.ds.SetProjection(to_sref.ExportToWkt())

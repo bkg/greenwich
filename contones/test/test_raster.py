@@ -7,8 +7,10 @@ import unittest
 import numpy as np
 from osgeo import gdal, ogr, osr
 
-from contones.raster import Raster, Envelope, SpatialReference, geom_to_array
+from contones.raster import Raster, geom_to_array
 from contones.io import ImageIO, driver_for_path
+from contones.geometry import Envelope
+from contones.srs import SpatialReference
 
 def create_gdal_datasource(fname):
     """Returns a GDAL Datasource for testing."""
@@ -41,8 +43,6 @@ class RasterTestCase(RasterTestBase):
     """Test Raster class."""
 
     def setUp(self):
-        #self.f = tempfile.NamedTemporaryFile(suffix='.tif')
-        #self.ds = Raster(create_gdal_datasource(self.f.name))
         super(RasterTestCase, self).setUp()
         # FIXME: Which one?!
         #envelope = (-13832951, 5943581, -13638043, 6099967)
@@ -53,12 +53,12 @@ class RasterTestCase(RasterTestBase):
         envelope.scale(0.8)
         print 'SCALED', envelope
         self.bbox = envelope.to_geom()
-        sref = osr.SpatialReference()
-        sref.ImportFromEPSG(3857)
+        sref = SpatialReference(3857)
         self.bbox.AssignSpatialReference(sref)
         # Bounding box in WGS84 lat/lng
         self.bbox_4326 = self.bbox.Clone()
-        sref_4326 = osr.SpatialReference(osr.SRS_WKT_WGS84)
+        #sref_4326 = osr.SpatialReference(osr.SRS_WKT_WGS84)
+        sref_4326 = SpatialReference(osr.SRS_WKT_WGS84)
         self.bbox_4326.TransformTo(sref_4326)
         self.geom = ogr.CreateGeometryFromJson(
             '{"type":"Polygon","coordinates":'
