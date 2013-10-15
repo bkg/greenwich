@@ -61,12 +61,12 @@ class ImageIO(object):
             driver = driver_for_path(path)
         if not isinstance(driver, gdal.Driver):
             raise Exception('No GDAL driver for {}'.format(path))
-        self.driver = driver
+        self._driver = driver
         self.driver_opts = self.drivers.get(self.ext, [])
         self.path = path or self._tempname()
 
     def __getattr__(self, attr):
-        return getattr(self.driver, attr)
+        return getattr(self._driver, attr)
 
     def __repr__(self):
         return '{}: {}'.format(self.__class__.__name__, str(self.info))
@@ -115,7 +115,7 @@ class ImageIO(object):
 
     @property
     def info(self):
-        return self.driver.GetMetadata()
+        return self._driver.GetMetadata()
 
     @property
     def ext(self):
