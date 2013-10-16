@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from osgeo import gdal, gdalconst
 
-import contones.io
+import contones.gio
 from contones.geometry import Envelope
 from contones.srs import SpatialReference
 
@@ -57,7 +57,6 @@ class AffineTransform(object):
     #def __getitem__(self, idx):
         #return self.tuple[idx]
 
-    #def project_grid_coords(self, coords):
     def transform_to_projected(self, coords):
         """Convert image pixel/line coordinates to georeferenced x/y, return a
         generator of two-tuples.
@@ -75,7 +74,6 @@ class AffineTransform(object):
             geo_y += geotransform[5] / 2.0
             yield geo_x, geo_y
 
-    # TODO: work with single coords as well.
     def transform(self, coords):
         """Transform from projection coordinates (Xp,Yp) space to pixel/line
         (P,L) raster space, based on the provided geotransformation.
@@ -102,16 +100,25 @@ class Raster(object):
     """Wrap a GDAL Dataset with additional behavior."""
 
     def __init__(self, dataset, mode=gdalconst.GA_ReadOnly):
+        """Initialize a Raster data set from a path or file
+
+        Arguments:
+        dataset -- path as str or file object
+        Keyword args:
+        mode -- gdal constant representing access mode
+        """
+        # Get the name if we have a file object.
+        dataset = getattr(dataset, 'name', dataset)
         if not isinstance(dataset, gdal.Dataset):
             dataset = gdal.Open(dataset, mode)
         if dataset is None:
             raise IOError('Could not open %s' % dataset)
         self.ds = dataset
+        self.affine = AffineTransform(self.GetGeoTransform())
         self.sref = SpatialReference(dataset.GetProjection())
         self._nodata = None
         self._extent = None
         self._io = None
-        self.affine = AffineTransform(self.GetGeoTransform())
         # Closes the GDALDataset
         dataset = None
 
@@ -145,6 +152,14 @@ class Raster(object):
 
     def __len__(self):
         return self.RasterCount
+
+    def __eq__(self, another):
+        if type(another) is type(self):
+            return self.__dict__ == another.__dict__
+        return False
+
+    def __ne__(self, another):
+        return not self.__eq__(another)
 
     def __repr__(self):
         return '{}({})'.format(self.__class__.__name__,
@@ -182,10 +197,9 @@ class Raster(object):
         """Returns the underlying ImageIO instance."""
         if self._io is None:
             # TODO: Move to __init__, not @property
-            self._io = contones.io.ImageIO(driver=self.ds.GetDriver())
+            self._io = contones.gio.ImageIO(driver=self.ds.GetDriver())
         return self._io
 
-    #FIXME: Check geom envelope bounds intersects.
     def _mask(self, geom):
         if isinstance(geom, Envelope):
             geom = geom.to_geom()
@@ -207,7 +221,8 @@ class Raster(object):
             mask_arr = geom_to_array(geom, dims, affine)
             m = np.ma.masked_array(arr, mask=mask_arr)
             #m.set_fill_value(self.nodata)
-            m = np.ma.masked_values(m, self.nodata)
+            if self.nodata is not None:
+                m = np.ma.masked_values(m, self.nodata)
             pixbuf = str(np.getbuffer(m.filled()))
         else:
             pixbuf = self.ReadRaster(*ul_px + dims)
@@ -256,9 +271,14 @@ class Raster(object):
             m = rast.masked_array()
         return m
 
-    def masked_array(self):
+    def masked_array(self, envelope=None):
         """Returns a MaskedArray using nodata values."""
-        return np.ma.masked_values(self.ReadAsArray(), self.nodata)
+        #if envelope:
+            #pass
+        arr = self.ReadAsArray()
+        if self.nodata is None:
+            return np.ma.masked_array(arr)
+        return np.ma.masked_values(arr, self.nodata)
 
     @property
     def nodata(self):
@@ -268,13 +288,6 @@ class Raster(object):
         if self._nodata is None:
             self._nodata = self[1].GetNoDataValue()
         return self._nodata
-
-    #def read(self, size=256):
-        #"""Returns a list of pixel values"""
-    #def getdata(self, band=None):
-        #import struct
-        #data = self.ReadRaster()
-        #return struct.unpack('B' * self.RasterXSize * self.RasterYSize, data)
 
     def ReadRaster(self, *args, **kwargs):
         """Returns a string of raster data for partial or full extent.
@@ -299,7 +312,6 @@ class Raster(object):
         affine = AffineTransform(self.GetGeoTransform())
         affine.scale_x *= factors[0]
         affine.scale_y *= factors[1]
-        # FIXME: affine, not affine.tuple
         dest = self.new(dimensions=dimensions, affine=affine.tuple)
         # Uses self and dest projection when set to None
         gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
@@ -342,13 +354,13 @@ class Raster(object):
         """Save this instance to the path and format given by location.
 
         Arguments:
-        location -- str or ImageIO instance
+        location -- output path as str or ImageIO instance
         """
         try:
             r = location.copy_from(self)
         except AttributeError:
             path = getattr(location, 'name', location)
-            imgio = contones.io.ImageIO(path)
+            imgio = contones.gio.ImageIO(path)
             r = imgio.copy_from(self)
         finally:
             r.close()
