@@ -1,5 +1,6 @@
-"""Raster image IO handling"""
+"""GDAL IO handling"""
 import os
+from io import IOBase
 import uuid
 
 from osgeo import gdal
@@ -31,6 +32,45 @@ def driver_for_path(path):
         if ext == avail_ext:
             return gdal.GetDriverByName(k)
     return None
+
+#class VSIFile(object):
+class VSIFile(IOBase):
+    def __init__(self, path, mode='rb'):
+        self.fp = gdal.VSIFOpenL(path, mode)
+
+    #def __enter__(self):
+    def close(self):
+        gdal.VSIFCloseL(self.fp)
+        self.fp = None
+
+    @property
+    def closed(self):
+        return self.fp is None
+
+    #def readline(self
+    def read(n=-1):
+        #nsize by ncount
+        gdal.VSIFReadL(1, 10, f)
+
+    # use io.SEEK_SET
+    def seek(self, offset, whence=0):
+        # seek to begin
+        #st = gdal.VSIFSeekL(f, 1, 0)
+        # returns status 0 or 1
+        pos = gdal.VSIFSeekL(self.fp, whence)
+        return pos
+
+    def seekable(self):
+        return True if self.fp else False
+
+    def tell(self):
+        return gdal.VSIFTellL(self.fp)
+
+    def truncate(self, size=None):
+        return gdal.VSIFTruncateL(self.fp, size)
+        # return the size
+
+open = VSIFile
 
 
 #class ImageFile(object):
@@ -71,18 +111,31 @@ class ImageIO(object):
     def __repr__(self):
         return '{}: {}'.format(self.__class__.__name__, str(self.info))
 
+    def _check_empty(self):
+        """Raises IOError unless file is empty."""
+        try:
+            is_empty = os.path.getsize(self.path) == 0
+        except OSError:
+            # File does not even exist
+            is_empty = True
+        if not is_empty:
+            errmsg = '{0} already exists, open with Raster({0})'.format(self.path)
+            raise IOError(errmsg)
+
     def create(self, nx, ny, bandcount=1, datatype=gdal.GDT_Byte,
                options=None):
         """Returns a new Raster instance.
 
         gdal.Driver.Create() does not support all formats.
         """
+        # Do not write to a non-empty file.
+        self._check_empty()
         if nx < 0 or ny < 0:
             raise ValueError('Size cannot be negative')
         ds = self.Create(self.path, nx, ny, bandcount,
                          datatype, options or self.driver_opts)
         if not ds:
-            raise Exception(
+            raise ValueError(
                 'Could not create {} using {}'.format(self.path, str(self)))
         return contones.raster.Raster(ds)
 
@@ -115,12 +168,15 @@ class ImageIO(object):
 
     @property
     def info(self):
+        """Returns a dict of gdal.Driver metadata."""
         return self._driver.GetMetadata()
 
     @property
     def ext(self):
+        """Returns the file extension."""
         return self.info.get('DMD_EXTENSION', '')
 
     @property
     def mimetype(self):
+        """Returns the MIME type."""
         return self.info.get('DMD_MIMETYPE', 'application/octet-stream')
