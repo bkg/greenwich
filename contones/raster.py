@@ -54,6 +54,12 @@ class AffineTransform(object):
     def __repr__(self):
         return str(self.tuple)
 
+    def __eq__(self, another):
+        return self.tuple == getattr(another, 'tuple', None)
+
+    def __ne__(self, another):
+        return not self.__eq__(another)
+
     #def __getitem__(self, idx):
         #return self.tuple[idx]
 
@@ -228,6 +234,10 @@ class Raster(object):
             pixbuf = self.ReadRaster(*ul_px + dims)
         clone = self.new(pixbuf, dims, affine.tuple)
         return clone
+
+    @property
+    def name(self):
+        return self.ds.GetDescription()
 
     def new(self, pixeldata=None, dimensions=None, affine=None):
         """Derive new Raster instances.
