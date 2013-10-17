@@ -8,7 +8,7 @@ import numpy as np
 from osgeo import gdal, ogr, osr
 
 from contones.raster import Raster, geom_to_array
-from contones.io import ImageIO, driver_for_path
+from contones.gio import ImageIO
 from contones.geometry import Envelope
 from contones.srs import SpatialReference
 
@@ -119,6 +119,13 @@ class RasterTestCase(RasterTestBase):
             removed = map(os.unlink, paths)
         except OSError:
             pass
+        # Test save with ImageIO
+        imgio = ImageIO(driver='HFA')
+        self.ds.save(imgio)
+        r = Raster(imgio.path)
+        self.assertEqual(r.shape, self.ds.shape)
+        self.assertNotEqual(r, self.ds)
+        r.close()
 
     def test_geom_to_array(self):
         g = self.geom.Clone()
@@ -143,56 +150,22 @@ class RasterTestCase(RasterTestBase):
         dcopy = self.ds.new()
         self.assertEqual(dcopy.nodata, self.ds.nodata)
         self.assertEqual(dcopy.shape, self.ds.shape)
+        self.assertNotEqual(dcopy, self.ds)
 
-
-class ImageIOTestCase(RasterTestBase):
-    def test_read(self):
-        """Test ImageIO reading."""
-        for dname in 'GTiff', 'HFA':
-            io_obj = ImageIO(driver=dname)
-            with Raster(self.f.name) as r:
-                r.save(io_obj)
-            data = io_obj.getvalue()
-            self.assertIsNotNone(data)
-            self.assertGreater(data, 0)
-
-    def test_copy_from(self):
-        """Test copying a raster."""
-        ds_copy = ImageIO(driver='PNG').copy_from(self.ds)
-        self.assertIsInstance(ds_copy, Raster)
-        self.assertEqual(ds_copy.io.ext, 'png')
-        # Make sure we get the same number of raster bands back.
-        self.assertEqual(*map(len, (self.ds, ds_copy)))
-
-    def test_create(self):
-        f = tempfile.NamedTemporaryFile(suffix='.img')
-        imgio = ImageIO(f.name)
-        with self.assertRaises(ValueError):
-            r = imgio.create(-10, -10)
-        size = (10, 10)
-        rast = imgio.create(*size)
-        self.assertEqual(rast.shape, size)
-        self.assertEqual(rast.io.ext, 'img')
-        f.close()
-
-    def test_driver_for_path(self):
-        self.assertEqual(driver_for_path('test.jpg').ShortName, 'JPEG')
-        self.assertEqual(driver_for_path('test.zzyyxx'), None)
-
-
-class SpatialReferenceTestCase(unittest.TestCase):
-
-    def test_wkt(self):
-        sref = SpatialReference(osr.SRS_WKT_WGS84)
-        self.assertEqual(sref.wkt, osr.SRS_WKT_WGS84)
-
-    def test_epsg(self):
-        epsg_id = 3310
-        from_epsg = SpatialReference(epsg_id)
-        self.assertEqual(from_epsg.srid, epsg_id)
-
-    def test_proj4(self):
-        p4 = SpatialReference(2805).ExportToProj4()
-        from_proj4 = SpatialReference(p4)
-        self.assertEqual(from_proj4.proj4, p4)
-
+    def test_init(self):
+        #vsipath = '/vsicurl/ftp://ftp.cpc.ncep.noaa.gov/GIS/GRADS_GIS/GeoTIFF/TEMP/us_tmax/us.tmax_nohads_ll_20110705_float.tif'
+        vsipath = 'us.tmax_nohads_ll_20110705_float.tif'
+        tmax = Raster(vsipath)
+        self.assertTrue(tmax)
+        self.assertTrue(tmax.masked_array().max())
+        imgio = ImageIO(driver='HFA')
+        tmax.save(imgio)
+        r = Raster(imgio.path)
+        self.assertEqual(r.shape, tmax.shape)
+        r.close()
+        # Test init from file object
+        with open(self.ds.name) as f:
+            r = Raster(f)
+        self.assertEqual(r.extent, self.ds.extent)
+        self.assertEqual(r.affine, self.ds.affine)
+        r.close()
