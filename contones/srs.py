@@ -1,4 +1,6 @@
 """Spatial reference systems"""
+__all__ = ['SpatialReference']
+
 from osgeo import osr
 
 
@@ -7,6 +9,12 @@ class BaseSpatialReference(osr.SpatialReference):
 
     def __repr__(self):
         return self.wkt
+
+    def __eq__(self, another):
+        return bool(self.IsSame(another))
+
+    def __ne__(self, another):
+        return not self.__eq__(another)
 
     @property
     def srid(self):
