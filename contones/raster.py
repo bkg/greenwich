@@ -171,6 +171,17 @@ class Raster(object):
         return '{}({})'.format(self.__class__.__name__,
                                self.ds.GetDescription())
 
+    def array(self, envelope=()):
+        """Returns an NDArray, optionally subset by spatial envelope.
+
+        Keyword args:
+        envelope -- coordinate extent tuple or Envelope
+        """
+        args = ()
+        if envelope:
+            args = self.get_offset(envelope)
+        return self.ds.ReadAsArray(*args)
+
     def close(self):
         """Close the GDAL dataset."""
         # De-ref the GDAL Dataset to completely close it.
@@ -198,42 +209,28 @@ class Raster(object):
             self._extent = (origin[0], ll_y, ur_x, origin[1])
         return self._extent
 
+    def get_offset(self, envelope):
+        """Returns a 4-tuple pixel window (x_offset, y_offset, x_size, y_size).
+
+        Arguments:
+        envelope -- coordinate extent tuple or Envelope
+        """
+        #if not geom.intersects(self.extent):
+        #if envelope not in self.envelope:
+            #raise ValueError('Envelope does not intersect')
+        if isinstance(envelope, tuple):
+            envelope = Envelope(*envelope)
+        ul_px, lr_px = self.affine.transform((envelope.ul, envelope.lr))
+        nx = min(lr_px[0] - ul_px[0], self.RasterXSize - ul_px[0])
+        ny = min(lr_px[1] - ul_px[1], self.RasterYSize - ul_px[1])
+        return ul_px + (nx, ny)
+
     @property
     def io(self):
         """Returns the underlying ImageIO instance."""
         if self._io is None:
-            # TODO: Move to __init__, not @property
             self._io = contones.gio.ImageIO(driver=self.ds.GetDriver())
         return self._io
-
-    def _mask(self, geom):
-        if isinstance(geom, Envelope):
-            geom = geom.to_geom()
-        geom = self._transform_maskgeom(geom)
-        #if not geom.intersects(self.extent):
-        env = Envelope.from_geom(geom)
-        bbox = env.to_geom()
-        ul_px, lr_px = self.affine.transform((env.ul, env.lr))
-        nx = min(lr_px[0] - ul_px[0], self.RasterXSize - ul_px[0])
-        ny = min(lr_px[1] - ul_px[1], self.RasterYSize - ul_px[1])
-        dims = (nx, ny)
-        affine = AffineTransform(self.GetGeoTransform())
-        # Update origin coordinate for the new affine transformation.
-        affine.origin = env.ul
-        # Without a simple bounding box, this is really a masking operation
-        # rather than a simple crop.
-        if not geom.Equals(bbox):
-            arr = self.ReadAsArray(*ul_px + dims)
-            mask_arr = geom_to_array(geom, dims, affine)
-            m = np.ma.masked_array(arr, mask=mask_arr)
-            #m.set_fill_value(self.nodata)
-            if self.nodata is not None:
-                m = np.ma.masked_values(m, self.nodata)
-            pixbuf = str(np.getbuffer(m.filled()))
-        else:
-            pixbuf = self.ReadRaster(*ul_px + dims)
-        clone = self.new(pixbuf, dims, affine.tuple)
-        return clone
 
     @property
     def name(self):
@@ -263,6 +260,33 @@ class Raster(object):
             rcopy.WriteRaster(*args)
         return rcopy
 
+    def _mask(self, geom):
+        geom = self._transform_maskgeom(geom)
+        env = Envelope.from_geom(geom)
+        readargs = self.get_offset(env)
+        dims = readargs[2:4]
+        affine = AffineTransform(self.GetGeoTransform())
+        # Update origin coordinate for the new affine transformation.
+        affine.origin = env.ul
+        # Without a simple envelope, this becomes a masking operation rather
+        # than a crop.
+        if not geom.Equals(env.to_geom()):
+            print '_mask: ReadAsArray'
+            arr = self.ds.ReadAsArray(*readargs)
+            mask_arr = geom_to_array(geom, dims, affine)
+            m = np.ma.masked_array(arr, mask=mask_arr)
+            #m.set_fill_value(self.nodata)
+            if self.nodata is not None:
+                m = np.ma.masked_values(m, self.nodata)
+            pixbuf = str(np.getbuffer(m.filled()))
+        else:
+            print '_mask: ReadRaster'
+            pixbuf = self.ds.ReadRaster(*readargs)
+        clone = self.new(pixbuf, dims, affine.tuple)
+        return clone
+
+    #def transform_envelope(self, envelope):
+    #def get_read_window(self, envelope):
     def mask(self, geom):
         """Returns a new raster instance masked to a particular geometry.
 
@@ -281,11 +305,13 @@ class Raster(object):
             m = rast.masked_array()
         return m
 
-    def masked_array(self, envelope=None):
-        """Returns a MaskedArray using nodata values."""
-        #if envelope:
-            #pass
-        arr = self.ReadAsArray()
+    def masked_array(self, envelope=()):
+        """Returns a MaskedArray using nodata values.
+
+        Keyword args:
+        envelope -- coordinate extent tuple or Envelope
+        """
+        arr = self.array(envelope)
         if self.nodata is None:
             return np.ma.masked_array(arr)
         return np.ma.masked_values(arr, self.nodata)
@@ -327,6 +353,49 @@ class Raster(object):
         gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
         return dest
 
+    def save(self, location):
+        """Save this instance to the path and format given by location.
+
+        Arguments:
+        location -- output path as str or ImageIO instance
+        """
+        try:
+            r = location.copy_from(self)
+        except AttributeError:
+            path = getattr(location, 'name', location)
+            imgio = contones.gio.ImageIO(path)
+            r = imgio.copy_from(self)
+        finally:
+            r.close()
+
+    def SetProjection(self, to_sref):
+        if not hasattr(to_sref, 'ExportToWkt'):
+            to_sref = SpatialReference(to_sref)
+        self.sref = to_sref
+        self.ds.SetProjection(to_sref.ExportToWkt())
+
+    def SetGeoTransform(self, geotrans_tuple):
+        """Sets the affine transformation."""
+        self.affine = AffineTransform(geotrans_tuple)
+        self.ds.SetGeoTransform(geotrans_tuple)
+
+    @property
+    def shape(self):
+        """Returns a tuple containing Y-axis, X-axis pixel counts."""
+        return (self.RasterYSize, self.RasterXSize)
+
+    def _transform_maskgeom(self, geom):
+        if isinstance(geom, Envelope):
+            geom = geom.to_geom()
+        geom_sref = geom.GetSpatialReference()
+        if geom_sref is None:
+            raise Exception('Cannot transform from unknown spatial reference')
+        # Reproject geom if necessary
+        if not geom_sref.IsSame(self.sref):
+            geom = geom.Clone()
+            geom.TransformTo(self.sref)
+        return geom
+
     def warp(self, to_sref, interpolation=gdalconst.GRA_NearestNeighbour):
         """Returns a new reprojected instance.
 
@@ -360,46 +429,6 @@ class Raster(object):
         gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
         return dest
 
-    def save(self, location):
-        """Save this instance to the path and format given by location.
-
-        Arguments:
-        location -- output path as str or ImageIO instance
-        """
-        try:
-            r = location.copy_from(self)
-        except AttributeError:
-            path = getattr(location, 'name', location)
-            imgio = contones.gio.ImageIO(path)
-            r = imgio.copy_from(self)
-        finally:
-            r.close()
-
-    def SetProjection(self, to_sref):
-        if not hasattr(to_sref, 'ExportToWkt'):
-            to_sref = SpatialReference(to_sref)
-        self.sref = to_sref
-        self.ds.SetProjection(to_sref.ExportToWkt())
-
-    def SetGeoTransform(self, geotrans_tuple):
-        """Sets the affine transformation."""
-        self.affine = AffineTransform(geotrans_tuple)
-        self.ds.SetGeoTransform(geotrans_tuple)
-
-    @property
-    def shape(self):
-        """Returns a tuple containing Y-axis, X-axis pixel counts."""
-        return (self.RasterYSize, self.RasterXSize)
-
-    def _transform_maskgeom(self, geom):
-        geom_sref = geom.GetSpatialReference()
-        if geom_sref is None:
-            raise Exception('Cannot transform from unknown spatial reference')
-        # Reproject geom if necessary
-        if not geom_sref.IsSame(self.sref):
-            geom = geom.Clone()
-            geom.TransformTo(self.sref)
-        return geom
 
 open = Raster
 #@contextmanager
