@@ -122,8 +122,10 @@ class RasterTestCase(RasterTestBase):
         # Test save with ImageIO
         imgio = ImageIO(driver='HFA')
         self.ds.save(imgio)
+        # Test init from a vsimem path.
         r = Raster(imgio.path)
         self.assertEqual(r.shape, self.ds.shape)
+        self.assertEqual(r.extent, self.ds.extent)
         self.assertNotEqual(r, self.ds)
         r.close()
 
@@ -158,14 +160,6 @@ class RasterTestCase(RasterTestBase):
         tmax = Raster(vsipath)
         self.assertTrue(tmax)
         self.assertTrue(tmax.masked_array().max())
-        imgio = ImageIO(driver='HFA')
-        tmax.save(imgio)
-        r = Raster(imgio.path)
-        self.assertEqual(r.shape, tmax.shape)
-        r.close()
-        # Test init from file object
-        with open(self.ds.name) as f:
-            r = Raster(f)
-        self.assertEqual(r.extent, self.ds.extent)
-        self.assertEqual(r.affine, self.ds.affine)
-        r.close()
+
+    #def test_read_array(self):
+        #-100,36 : -96,39

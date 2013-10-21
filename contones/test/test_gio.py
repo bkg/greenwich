@@ -17,7 +17,7 @@ class ImageIOTestCase(RasterTestBase):
             self.assertGreater(data, 0)
 
     def test_copy_from(self):
-        ds_copy = ImageIO(driver='PNG').copy_from(self.ds)
+        ds_copy = ImageIO(driver='PNG').copyfrom(self.ds)
         self.assertIsInstance(ds_copy, Raster)
         self.assertEqual(ds_copy.io.ext, 'png')
         # Make sure we get the same number of raster bands back.

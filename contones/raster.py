@@ -360,11 +360,11 @@ class Raster(object):
         location -- output path as str or ImageIO instance
         """
         try:
-            r = location.copy_from(self)
+            r = location.copyfrom(self)
         except AttributeError:
             path = getattr(location, 'name', location)
             imgio = contones.gio.ImageIO(path)
-            r = imgio.copy_from(self)
+            r = imgio.copyfrom(self)
         finally:
             r.close()
 

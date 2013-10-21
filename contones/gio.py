@@ -1,6 +1,6 @@
 """GDAL IO handling"""
+# TODO: Rename module to gdalio?
 import os
-from io import IOBase
 import uuid
 
 from osgeo import gdal
@@ -33,47 +33,7 @@ def driver_for_path(path):
             return gdal.GetDriverByName(k)
     return None
 
-#class VSIFile(object):
-class VSIFile(IOBase):
-    def __init__(self, path, mode='rb'):
-        self.fp = gdal.VSIFOpenL(path, mode)
 
-    #def __enter__(self):
-    def close(self):
-        gdal.VSIFCloseL(self.fp)
-        self.fp = None
-
-    @property
-    def closed(self):
-        return self.fp is None
-
-    #def readline(self
-    def read(n=-1):
-        #nsize by ncount
-        gdal.VSIFReadL(1, 10, f)
-
-    # use io.SEEK_SET
-    def seek(self, offset, whence=0):
-        # seek to begin
-        #st = gdal.VSIFSeekL(f, 1, 0)
-        # returns status 0 or 1
-        pos = gdal.VSIFSeekL(self.fp, whence)
-        return pos
-
-    def seekable(self):
-        return True if self.fp else False
-
-    def tell(self):
-        return gdal.VSIFTellL(self.fp)
-
-    def truncate(self, size=None):
-        return gdal.VSIFTruncateL(self.fp, size)
-        # return the size
-
-open = VSIFile
-
-
-#class ImageFile(object):
 class ImageIO(object):
     """File or memory (VSIMEM) backed IO for GDAL datasets.
 
@@ -143,7 +103,7 @@ class ImageIO(object):
         basename = '{}.{}'.format(str(uuid.uuid4()), self.ext)
         return os.path.join(self._vsimem, basename)
 
-    def copy_from(self, dataset, options=None):
+    def copyfrom(self, dataset, options=None):
         """Returns a copied Raster instance."""
         if self.path == dataset.GetDescription():
             raise ValueError(
