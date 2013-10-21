@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 from osgeo import gdal, ogr, osr
 
-from contones.raster import Raster, geom_to_array
+from contones.raster import Raster, geom_to_array, open as openras
 from contones.gio import ImageIO
 from contones.geometry import Envelope
 from contones.srs import SpatialReference
@@ -74,7 +74,7 @@ class RasterTestCase(RasterTestBase):
     def hexdigest(self, s):
         return hashlib.md5(s).hexdigest()
 
-    def test_raster_crop(self):
+    def test_crop(self):
         """Test image cropping with OGR Geometries."""
         cropped = self.ds.crop(self.bbox)
         self.assertIsInstance(cropped, Raster)
@@ -87,20 +87,21 @@ class RasterTestCase(RasterTestBase):
         px_b = self.hexdigest(cropped.ReadRaster())
         self.assertEqual(px_a, px_b)
 
-    def test_raster_mask(self):
+    def test_mask(self):
         """Test masking a raster with a geometry."""
         rast = self.ds.mask(self.geom)
         arr = rast.ReadAsArray()
+        rast.close()
         # First element should be masked.
         self.assertEqual(arr[0,0], self.ds.nodata)
         # Center element should be unmasked.
         center = arr.shape[0] / 2, arr.shape[1] / 2
         self.assertEqual(arr[center], 1)
-        dims = (self.ds.RasterYSize, self.ds.RasterXSize)
-        m_shape = self.ds.mask_asarray(self.bbox).shape
-        self.assertLess(m_shape, dims)
+        with self.ds.mask(self.bbox) as r:
+            m = r.masked_array()
+        self.assertLess(m.shape, self.ds.shape)
 
-    def test_raster_save(self):
+    def test_save(self):
         ext = '.img'
         f = tempfile.NamedTemporaryFile(suffix=ext)
         print f.name, f.file.tell()
@@ -160,6 +161,8 @@ class RasterTestCase(RasterTestBase):
         tmax = Raster(vsipath)
         self.assertTrue(tmax)
         self.assertTrue(tmax.masked_array().max())
+        with openras(vsipath) as r:
+            self.assertIsInstance(r, Raster)
 
     #def test_read_array(self):
         #-100,36 : -96,39

@@ -236,12 +236,12 @@ class Raster(object):
     def name(self):
         return self.ds.GetDescription()
 
-    def new(self, pixeldata=None, dimensions=None, affine=None):
+    def new(self, pixeldata=None, dimensions=(), affine=None):
         """Derive new Raster instances.
 
         Keyword args:
         pixeldata -- bytestring containing pixel data
-        dimensions -- tuple of image size
+        dimensions -- tuple of image size (width, height)
         affine -- affine transformation tuple
         """
         pixels_x, pixels_y = dimensions or (self.RasterXSize, self.RasterYSize)
@@ -271,7 +271,6 @@ class Raster(object):
         # Without a simple envelope, this becomes a masking operation rather
         # than a crop.
         if not geom.Equals(env.to_geom()):
-            print '_mask: ReadAsArray'
             arr = self.ds.ReadAsArray(*readargs)
             mask_arr = geom_to_array(geom, dims, affine)
             m = np.ma.masked_array(arr, mask=mask_arr)
@@ -280,13 +279,10 @@ class Raster(object):
                 m = np.ma.masked_values(m, self.nodata)
             pixbuf = str(np.getbuffer(m.filled()))
         else:
-            print '_mask: ReadRaster'
             pixbuf = self.ds.ReadRaster(*readargs)
         clone = self.new(pixbuf, dims, affine.tuple)
         return clone
 
-    #def transform_envelope(self, envelope):
-    #def get_read_window(self, envelope):
     def mask(self, geom):
         """Returns a new raster instance masked to a particular geometry.
 
@@ -294,16 +290,6 @@ class Raster(object):
         geom -- OGR Polygon or MultiPolygon
         """
         return self._mask(geom)
-
-    def mask_asarray(self, geom):
-        """Returns a numpy MaskedArray for the intersecting geometry.
-
-        Arguments:
-        geom -- OGR Polygon or MultiPolygon
-        """
-        with self.mask(geom) as rast:
-            m = rast.masked_array()
-        return m
 
     def masked_array(self, envelope=()):
         """Returns a MaskedArray using nodata values.
@@ -381,8 +367,9 @@ class Raster(object):
 
     @property
     def shape(self):
-        """Returns a tuple containing Y-axis, X-axis pixel counts."""
-        return (self.RasterYSize, self.RasterXSize)
+        """Returns a tuple of row, column, (band count if multidimensional)."""
+        shp = (self.RasterYSize, self.RasterXSize, self.RasterCount)
+        return shp[:2] if shp[2] <= 1 else shp
 
     def _transform_maskgeom(self, geom):
         if isinstance(geom, Envelope):
@@ -431,9 +418,3 @@ class Raster(object):
 
 
 open = Raster
-#@contextmanager
-#def open(fpath):
-    ##with Raster(fpath) as fpath:
-        ##pass
-    #return Raster(fpath)
-
