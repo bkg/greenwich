@@ -64,14 +64,12 @@ class Envelope(object):
         return self.max_x - self.min_x
 
     def scale(self, factor_x, factor_y=None):
-        """Rescale the envelope by the given factor(s)."""
+        """Returns a new envelope rescaled by the given factor(s)."""
         factor_y = factor_x if factor_y is None else factor_y
         w = self.width * factor_x / 2.0
         h = self.height * factor_y / 2.0
-        self.min_x += w
-        self.max_x -= w
-        self.min_y += h
-        self.max_y -= h
+        return Envelope(self.min_x + w, self.min_y + h,
+                        self.max_x - w, self.max_y - h)
 
     def to_geom(self):
         """Returns an OGR Geometry for this envelope."""
