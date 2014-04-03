@@ -1,5 +1,4 @@
 """GDAL IO handling"""
-# TODO: Rename module to gdalio?
 import os
 import uuid
 
@@ -42,7 +41,7 @@ class ImageIO(object):
     """
     _vsimem = '/vsimem'
     # GDAL driver default creation options.
-    drivers = {'tif': ['COMPRESS=PACKBITS'],
+    drivers = {'tif': ['TILED=YES', 'COMPRESS=PACKBITS'],
                'img': ['COMPRESSED=YES']}
 
     def __init__(self, path=None, driver=None):
