@@ -70,16 +70,13 @@ class ImageIO(object):
     def __repr__(self):
         return '{}: {}'.format(self.__class__.__name__, str(self.info))
 
-    def _check_empty(self):
-        """Raises IOError unless file is empty."""
+    def is_empty(self):
+        """Returns True if file is empty."""
         try:
-            is_empty = os.path.getsize(self.path) == 0
+            return os.path.getsize(self.path) == 0
         except OSError:
             # File does not even exist
-            is_empty = True
-        if not is_empty:
-            errmsg = '{0} already exists, open with Raster({0})'.format(self.path)
-            raise IOError(errmsg)
+            return True
 
     def create(self, nx, ny, bandcount=1, datatype=gdal.GDT_Byte,
                options=None):
@@ -88,7 +85,9 @@ class ImageIO(object):
         gdal.Driver.Create() does not support all formats.
         """
         # Do not write to a non-empty file.
-        self._check_empty()
+        if not self.is_empty():
+            errmsg = '{0} already exists, open with Raster({0})'.format(self.path)
+            raise IOError(errmsg)
         if nx < 0 or ny < 0:
             raise ValueError('Size cannot be negative')
         ds = self.Create(self.path, nx, ny, bandcount,
