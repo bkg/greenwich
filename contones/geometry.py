@@ -63,6 +63,29 @@ class Envelope(object):
     def width(self):
         return self.max_x - self.min_x
 
+    def contains(self, envp):
+        """Returns true if this envelope contains another.
+
+        Arguments:
+        envp -- Envelope or tuple of (minX, minY, maxX, maxY)
+        """
+        try:
+            return self.ll <= envp.ll and self.ur >= envp.ur
+        except AttributeError:
+            # Perhaps we have a tuple, try again with an Envelope.
+            return self.contains(Envelope(*envp))
+
+    def intersects(self, envp):
+        """Returns true if this envelope intersects another.
+
+        Arguments:
+        envp -- Envelope or tuple of (minX, minY, maxX, maxY)
+        """
+        try:
+            return self.ll <= envp.ur and self.ur >= envp.ll
+        except AttributeError:
+            return self.intersects(Envelope(*envp))
+
     def scale(self, factor_x, factor_y=None):
         """Returns a new envelope rescaled by the given factor(s)."""
         factor_y = factor_x if factor_y is None else factor_y
