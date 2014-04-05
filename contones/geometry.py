@@ -25,43 +25,24 @@ class Envelope(object):
         if self.min_x > self.max_x or self.min_y > self.max_y:
             raise ValueError('Invalid coordinate extent')
 
+    def __add__(self, i):
+        return Envelope(*[x + i for x in self])
+
+    def __contains__(self, envp):
+        return self.contains(envp)
+
+    def __eq__(self, another):
+        return self.tuple == getattr(another, 'tuple', False)
+
+    def __iter__(self):
+        for i in self.tuple:
+            yield i
+
     def __repr__(self):
         return str(self.tuple)
 
-    @property
-    def ur(self):
-        """Returns the upper right coordinate."""
-        return self.max_x, self.max_y
-
-    #def lower_right(self):
-
-    @property
-    def lr(self):
-        """Returns the lower right coordinate."""
-        return self.max_x, self.min_y
-
-    @property
-    def ll(self):
-        """Returns the lower left coordinate."""
-        return self.min_x, self.min_y
-
-    @property
-    def ul(self):
-        """Returns the upper left coordinate."""
-        return self.min_x, self.max_y
-
-    @property
-    def tuple(self):
-        """Returns the maximum extent as a tuple."""
-        return self.ll + self.ur
-
-    @property
-    def height(self):
-        return self.max_y - self.min_y
-
-    @property
-    def width(self):
-        return self.max_x - self.min_x
+    def __sub__(self, i):
+        return self.__add__(-i)
 
     def contains(self, envp):
         """Returns true if this envelope contains another.
@@ -75,6 +56,16 @@ class Envelope(object):
             # Perhaps we have a tuple, try again with an Envelope.
             return self.contains(Envelope(*envp))
 
+    @staticmethod
+    def from_geom(geom):
+        """Returns an Envelope from an OGR Geometry."""
+        extent = geom.GetEnvelope()
+        return Envelope(extent[0], extent[2], extent[1], extent[3])
+
+    @property
+    def height(self):
+        return self.max_y - self.min_y
+
     def intersects(self, envp):
         """Returns true if this envelope intersects another.
 
@@ -85,6 +76,16 @@ class Envelope(object):
             return self.ll <= envp.ur and self.ur >= envp.ll
         except AttributeError:
             return self.intersects(Envelope(*envp))
+
+    @property
+    def ll(self):
+        """Returns the lower left coordinate."""
+        return self.min_x, self.min_y
+
+    @property
+    def lr(self):
+        """Returns the lower right coordinate."""
+        return self.max_x, self.min_y
 
     def scale(self, factor_x, factor_y=None):
         """Returns a new envelope rescaled by the given factor(s)."""
@@ -103,8 +104,21 @@ class Envelope(object):
         polyg.AddGeometryDirectly(ring)
         return polyg
 
-    @staticmethod
-    def from_geom(geom):
-        """Returns an Envelope from an OGR Geometry."""
-        extent = geom.GetEnvelope()
-        return Envelope(extent[0], extent[2], extent[1], extent[3])
+    @property
+    def tuple(self):
+        """Returns the maximum extent as a tuple."""
+        return self.ll + self.ur
+
+    @property
+    def ul(self):
+        """Returns the upper left coordinate."""
+        return self.min_x, self.max_y
+
+    @property
+    def ur(self):
+        """Returns the upper right coordinate."""
+        return self.max_x, self.max_y
+
+    @property
+    def width(self):
+        return self.max_x - self.min_x
