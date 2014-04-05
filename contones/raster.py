@@ -149,6 +149,9 @@ class Raster(object):
         for i in range(1, self.RasterCount + 1):
             yield self[i]
 
+    def __del__(self):
+        self.close()
+
     def __enter__(self):
         return self
 
