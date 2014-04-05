@@ -14,7 +14,6 @@ from contones.srs import SpatialReference
 
 def create_gdal_datasource(fname):
     """Returns a GDAL Datasource for testing."""
-    #xsize, ysize = 500, 500
     xsize, ysize = 1000, 1000
     #np.random.randint(2, size=(xsize, ysize))
     arr = np.ones((xsize, ysize), dtype=np.byte)
@@ -44,20 +43,13 @@ class RasterTestCase(RasterTestBase):
 
     def setUp(self):
         super(RasterTestCase, self).setUp()
-        # FIXME: Which one?!
-        #envelope = (-13832951, 5943581, -13638043, 6099967)
-        # OGR format xmin, xmax, ymin, ymax
-        #envelope = (-13832951, -13638043, 5943581, 6099967)
         # Shrink envelope
-        envelope = Envelope(*self.ds.extent)
-        envelope.scale(0.8)
-        print 'SCALED', envelope
+        envelope = self.ds.envelope.scale(0.8)
         self.bbox = envelope.to_geom()
         sref = SpatialReference(3857)
         self.bbox.AssignSpatialReference(sref)
         # Bounding box in WGS84 lat/lng
         self.bbox_4326 = self.bbox.Clone()
-        #sref_4326 = osr.SpatialReference(osr.SRS_WKT_WGS84)
         sref_4326 = SpatialReference(osr.SRS_WKT_WGS84)
         self.bbox_4326.TransformTo(sref_4326)
         self.geom = ogr.CreateGeometryFromJson(
@@ -68,11 +60,18 @@ class RasterTestCase(RasterTestBase):
     def test_nodata(self):
         self.assertEqual(self.ds.nodata, 0)
 
-    def test_extent(self):
-        self.assertEqual(len(self.ds.extent), 4)
+    def test_envelope(self):
+        # Need to verify upper right and lower left pairs
+        self.assertIsInstance(self.ds.envelope, Envelope)
 
     def hexdigest(self, s):
         return hashlib.md5(s).hexdigest()
+
+    def test_array(self):
+        # Reading outside of raster extent is an error.
+        self.assertRaises(ValueError, self.ds.array, (-100, 36, -96, 39))
+        arr = self.ds.array(self.bbox.GetEnvelope())
+        self.assertLess(arr.shape, self.ds.shape)
 
     def test_crop(self):
         """Test image cropping with OGR Geometries."""
@@ -90,7 +89,7 @@ class RasterTestCase(RasterTestBase):
     def test_mask(self):
         """Test masking a raster with a geometry."""
         rast = self.ds.mask(self.geom)
-        arr = rast.ReadAsArray()
+        arr = rast.array()
         rast.close()
         # First element should be masked.
         self.assertEqual(arr[0,0], self.ds.nodata)
@@ -104,15 +103,12 @@ class RasterTestCase(RasterTestBase):
     def test_save(self):
         ext = '.img'
         f = tempfile.NamedTemporaryFile(suffix=ext)
-        print f.name, f.file.tell()
         self.ds.save(f)
         b = f.read()
         self.assertGreater(f.file.tell(), 0)
         # Read the image header.
         img_header = b[:15]
-        print img_header
         self.assertEqual(img_header, 'EHFA_HEADER_TAG')
-        print f.name, f.file.tell()
         f.close()
         # Clean up associated files like .aux.xml, etc.
         paths = glob.glob(f.name.replace(ext, '*'))
@@ -126,7 +122,7 @@ class RasterTestCase(RasterTestBase):
         # Test init from a vsimem path.
         r = Raster(imgio.path)
         self.assertEqual(r.shape, self.ds.shape)
-        self.assertEqual(r.extent, self.ds.extent)
+        self.assertEqual(r.envelope, self.ds.envelope)
         self.assertNotEqual(r, self.ds)
         r.close()
 
@@ -163,6 +159,3 @@ class RasterTestCase(RasterTestBase):
         self.assertTrue(tmax.masked_array().max())
         with openras(vsipath) as r:
             self.assertIsInstance(r, Raster)
-
-    #def test_read_array(self):
-        #-100,36 : -96,39

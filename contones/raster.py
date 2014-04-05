@@ -123,7 +123,7 @@ class Raster(object):
         self.affine = AffineTransform(self.GetGeoTransform())
         self.sref = SpatialReference(dataset.GetProjection())
         self._nodata = None
-        self._extent = None
+        self._envelope = None
         self._io = None
         # Closes the GDALDataset
         dataset = None
@@ -198,19 +198,17 @@ class Raster(object):
         """
         return self._mask(bbox)
 
-    # TODO: Decide on envelope tuple format, or maybe just distinguish between
-    # .envelope and .extent, create Envelope class.
     @property
-    def extent(self):
+    def envelope(self):
         """Returns the minimum bounding rectangle as a tuple of min X, min Y,
         max X, max Y.
         """
-        if self._extent is None:
+        if self._envelope is None:
             origin = self.affine.origin
-            ur_x = origin[0] + (self.RasterXSize * self.affine.scale_x)
-            ll_y = origin[1] + (self.RasterYSize * self.affine.scale_y)
-            self._extent = (origin[0], ll_y, ur_x, origin[1])
-        return self._extent
+            ur_x = origin[0] + self.RasterXSize * self.affine.scale_x
+            ll_y = origin[1] + self.RasterYSize * self.affine.scale_y
+            self._envelope = Envelope(origin[0], ll_y, ur_x, origin[1])
+        return self._envelope
 
     def get_offset(self, envelope):
         """Returns a 4-tuple pixel window (x_offset, y_offset, x_size, y_size).
@@ -218,11 +216,11 @@ class Raster(object):
         Arguments:
         envelope -- coordinate extent tuple or Envelope
         """
-        #if not geom.intersects(self.extent):
-        #if envelope not in self.envelope:
-            #raise ValueError('Envelope does not intersect')
         if isinstance(envelope, tuple):
             envelope = Envelope(*envelope)
+        if not (self.envelope.contains(envelope) or
+                self.envelope.intersects(envelope)):
+            raise ValueError('Envelope does not intersect with this extent.')
         ul_px, lr_px = self.affine.transform((envelope.ul, envelope.lr))
         nx = min(lr_px[0] - ul_px[0], self.RasterXSize - ul_px[0])
         ny = min(lr_px[1] - ul_px[1], self.RasterYSize - ul_px[1])
