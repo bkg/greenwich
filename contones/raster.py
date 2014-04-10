@@ -120,6 +120,7 @@ class Raster(object):
         if dataset is None:
             raise IOError('Could not open %s' % dataset)
         self.ds = dataset
+        self.name = self.ds.GetDescription()
         self.affine = AffineTransform(self.GetGeoTransform())
         self.sref = SpatialReference(dataset.GetProjection())
         self._nodata = None
@@ -228,27 +229,24 @@ class Raster(object):
 
     @property
     def io(self):
-        """Returns the underlying ImageIO instance."""
+        """Returns the underlying ImageDriver instance."""
         if self._io is None:
-            self._io = contones.gio.ImageIO(driver=self.ds.GetDriver())
+            self._io = contones.gio.ImageDriver(self.ds.GetDriver())
         return self._io
 
-    @property
-    def name(self):
-        return self.ds.GetDescription()
-
-    def new(self, pixeldata=None, dimensions=(), affine=None):
+    def new(self, pixeldata=None, size=(), affine=None):
         """Derive new Raster instances.
 
         Keyword args:
         pixeldata -- bytestring containing pixel data
-        dimensions -- tuple of image size (width, height)
+        size -- tuple of image size (width, height)
         affine -- affine transformation tuple
         """
-        pixels_x, pixels_y = dimensions or (self.RasterXSize, self.RasterYSize)
+        size = size or self.shape
         band = self.GetRasterBand(1)
-        rcopy = self.io.create(
-            pixels_x, pixels_y, self.RasterCount, band.DataType)
+        imgio = contones.gio.ImageIO(driver=self.io.name)
+        rcopy = imgio.create(size, band.DataType)
+        imgio.close()
         rcopy.SetProjection(self.GetProjection())
         rcopy.SetGeoTransform(affine or self.GetGeoTransform())
         colors = band.GetColorTable()
@@ -257,7 +255,7 @@ class Raster(object):
             if colors:
                 outband.SetColorTable(colors)
         if pixeldata:
-            args = (0, 0) + dimensions + (pixeldata,)
+            args = (0, 0) + size + (pixeldata,)
             rcopy.WriteRaster(*args)
         return rcopy
 
@@ -315,27 +313,26 @@ class Raster(object):
     def ReadRaster(self, *args, **kwargs):
         """Returns a string of raster data for partial or full extent.
 
-        Overrides GDALDataset.ReadRaster() with the full raster dimensions by
+        Overrides GDALDataset.ReadRaster() with the full raster size by
         default.
         """
         if len(args) < 4:
             args = (0, 0, self.RasterXSize, self.RasterYSize)
         return self.ds.ReadRaster(*args, **kwargs)
 
-    def resample(self, dimensions,
-                 interpolation=gdalconst.GRA_NearestNeighbour):
-        """Returns a new instance resampled to provided dimensions.
+    def resample(self, size, interpolation=gdalconst.GRA_NearestNeighbour):
+        """Returns a new instance resampled to provided size.
 
         Arguments:
-        dimensions -- tuple of x,y image dimensions
+        size -- tuple of x,y image dimensions
         """
         # Find the scaling factor for pixel size.
-        factors = (dimensions[0] / float(self.RasterXSize),
-                   dimensions[1] / float(self.RasterYSize))
+        factors = (size[0] / float(self.RasterXSize),
+                   size[1] / float(self.RasterYSize))
         affine = AffineTransform(self.GetGeoTransform())
         affine.scale_x *= factors[0]
         affine.scale_y *= factors[1]
-        dest = self.new(dimensions=dimensions, affine=affine.tuple)
+        dest = self.new(size=size, affine=affine.tuple)
         # Uses self and dest projection when set to None
         gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
         return dest
@@ -406,8 +403,9 @@ class Raster(object):
         dst_gt = vrt.GetGeoTransform()
         vrt = None
         # FIXME: Should not set proj in new()?
-        #dest = self.new(dimensions=(dst_xsize, dst_ysize))
-        dest = self.io.create(dst_xsize, dst_ysize, self.RasterCount, dtype)
+        imgio = contones.gio.ImageIO(filename, self.io.name)
+        dest = imgio.create((dst_xsize, dst_ysize, self.RasterCount), dtype)
+        imgio.close()
         dest.SetGeoTransform(dst_gt)
         dest.SetProjection(to_sref)
         for band in dest:
