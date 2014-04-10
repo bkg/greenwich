@@ -37,6 +37,9 @@ class RasterTestBase(unittest.TestCase):
         self.f = tempfile.NamedTemporaryFile(suffix='.tif')
         self.ds = Raster(create_gdal_datasource(self.f.name))
 
+    def tearDown(self):
+        self.f.close()
+
 
 class RasterTestCase(RasterTestBase):
     """Test Raster class."""
@@ -138,6 +141,8 @@ class RasterTestCase(RasterTestBase):
         epsg_id = 4326
         d = self.ds.warp(epsg_id)
         self.assertEqual(d.sref.srid, epsg_id)
+        self.assertNotEqual(d.shape, self.ds.shape)
+        self.assertEqual(d.array().shape, d.shape)
 
     def test_resample(self):
         # Half the original resolution
@@ -150,6 +155,9 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(dcopy.nodata, self.ds.nodata)
         self.assertEqual(dcopy.shape, self.ds.shape)
         self.assertNotEqual(dcopy, self.ds)
+        pixdat = ''.join(map(str, range(10)))
+        d2 = self.ds.new(pixdat, (2, 5))
+        self.assertEqual(d2.ReadRaster(), pixdat)
 
     def test_init(self):
         #vsipath = '/vsicurl/ftp://ftp.cpc.ncep.noaa.gov/GIS/GRADS_GIS/GeoTIFF/TEMP/us_tmax/us.tmax_nohads_ll_20110705_float.tif'
