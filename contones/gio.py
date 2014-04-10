@@ -31,12 +31,17 @@ def driver_for_path(path):
             return ImageDriver(gdal.GetDriverByName(k))
     return None
 
+def driverdict_tolist(d):
+    """Returns a GDAL formatted options list from a dict."""
+    return map('='.join, d.items())
 
 
 class ImageDriver(object):
+    """Wrap gdal.Driver"""
     # GDAL driver default creation options.
-    defaults = {'tif': ['TILED=YES', 'COMPRESS=PACKBITS'],
-                'img': ['COMPRESSED=YES']}
+    defaults = {'img': {'COMPRESSED': 'YES'},
+                'nc': {'COMPRESS': 'DEFLATE'},
+                'tif': {'TILED': 'YES', 'COMPRESS': 'PACKBITS'}}
     registry = available_drivers()
 
     def __init__(self, driver=None):
@@ -52,7 +57,7 @@ class ImageDriver(object):
         if not isinstance(driver, gdal.Driver):
             raise TypeError('No GDAL driver for {}'.format(driver))
         self._driver = driver
-        self.options = self.defaults.get(self.ext, [])
+        self.options = self.defaults.get(self.ext, {})
 
     def __getattr__(self, attr):
         return getattr(self._driver, attr)
@@ -62,15 +67,28 @@ class ImageDriver(object):
 
     def copy(self, source, dest=None, options=None):
         """Returns a copied Raster instance.
+
         Arguments:
         source -- the source Raster instance
+        Keyword args:
+        dest -- filepath as str or ImageIO instance
+        options -- dict of dataset creation options
         """
-        dest = ImageIO(dest)
+        dest = dest or ImageIO(dest)
         if source.name == dest.name:
             raise ValueError(
                 'Input and output are the same location: {}'.format(source.name))
-        ds = self.CreateCopy(dest.name, source.ds,
-                             options=options or self.options)
+        options = driverdict_tolist(options or self.options)
+        ds = self.CreateCopy(dest.name, source.ds, options=options)
+        return contones.raster.Raster(ds)
+
+    def Create(self, *args, **kwargs):
+        """Calls Driver.Create() with optionally provided creation options as
+        dict, or falls back to driver specific defaults.
+        """
+        options = kwargs.pop('options', {})
+        kwargs['options'] = driverdict_tolist(options or self.options)
+        ds = self._driver.Create(*args, **kwargs)
         return contones.raster.Raster(ds)
 
     @property
@@ -87,6 +105,10 @@ class ImageDriver(object):
     def mimetype(self):
         """Returns the MIME type."""
         return self.info.get('DMD_MIMETYPE', 'application/octet-stream')
+
+    @property
+    def name(self):
+        return self._driver.ShortName
 
 
 class ImageIO(object):
@@ -130,11 +152,11 @@ class ImageIO(object):
             errmsg = '{0} already exists, open with Raster({0})'.format(self.name)
             raise IOError(errmsg)
         ds = self.driver.Create(self.name, nx, ny, bandcount, datatype,
-                                options or self.driver.options)
+                                options=options)
         if not ds:
             raise ValueError(
                 'Could not create {} using {}'.format(self.name, str(self)))
-        return contones.raster.Raster(ds)
+        return ds
 
     def getvalue(self):
         """Returns the raster data buffer as a byte string."""
