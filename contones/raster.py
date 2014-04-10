@@ -403,7 +403,7 @@ class Raster(object):
         dst_gt = vrt.GetGeoTransform()
         vrt = None
         # FIXME: Should not set proj in new()?
-        imgio = contones.gio.ImageIO(filename, self.io.name)
+        imgio = contones.gio.ImageIO(driver=self.io.name)
         dest = imgio.create((dst_xsize, dst_ysize, self.RasterCount), dtype)
         imgio.close()
         dest.SetGeoTransform(dst_gt)
