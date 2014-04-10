@@ -130,6 +130,16 @@ class ImageIO(object):
         else:
             self.driver = ImageDriver(driver)
             self.name = self._tempname()
+        self.closed = False
+
+    def __del__(self):
+        self.close()
+
+    def close(self):
+        #gdal.VSIFCloseL(self.name)
+        if self.is_temp() and not self.closed:
+            self.unlink()
+        self.closed = True
 
     #def create_raster
     def create(self, shape, datatype=gdal.GDT_Byte, options=None):
@@ -175,6 +185,10 @@ class ImageIO(object):
         except OSError:
             # File does not even exist
             return True
+
+    def is_temp(self):
+        """Returns true if this resides only in memory."""
+        return self.name.startswith(self._vsimem)
 
     def _tempname(self):
         """Returns a temporary VSI memory filename."""
