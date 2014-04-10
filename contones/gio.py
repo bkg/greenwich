@@ -107,7 +107,7 @@ class ImageDriver(object):
         return self.info.get('DMD_MIMETYPE', 'application/octet-stream')
 
     @property
-    def name(self):
+    def format(self):
         return self._driver.ShortName
 
 

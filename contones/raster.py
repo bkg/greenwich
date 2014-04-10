@@ -125,7 +125,7 @@ class Raster(object):
         self.sref = SpatialReference(dataset.GetProjection())
         self._nodata = None
         self._envelope = None
-        self._io = None
+        self._driver = None
         # Closes the GDALDataset
         dataset = None
 
@@ -228,11 +228,11 @@ class Raster(object):
         return ul_px + (nx, ny)
 
     @property
-    def io(self):
+    def driver(self):
         """Returns the underlying ImageDriver instance."""
-        if self._io is None:
-            self._io = contones.gio.ImageDriver(self.ds.GetDriver())
-        return self._io
+        if self._driver is None:
+            self._driver = contones.gio.ImageDriver(self.ds.GetDriver())
+        return self._driver
 
     def new(self, pixeldata=None, size=(), affine=None):
         """Derive new Raster instances.
@@ -244,7 +244,7 @@ class Raster(object):
         """
         size = size or self.shape
         band = self.GetRasterBand(1)
-        imgio = contones.gio.ImageIO(driver=self.io.name)
+        imgio = contones.gio.ImageIO(driver=self.driver.format)
         rcopy = imgio.create(size, band.DataType)
         imgio.close()
         rcopy.SetProjection(self.GetProjection())
@@ -402,7 +402,7 @@ class Raster(object):
         dst_gt = vrt.GetGeoTransform()
         vrt = None
         # FIXME: Should not set proj in new()?
-        imgio = contones.gio.ImageIO(driver=self.io.name)
+        imgio = contones.gio.ImageIO(driver=self.driver.format)
         dest = imgio.create((dst_xsize, dst_ysize, self.RasterCount), dtype)
         imgio.close()
         dest.SetGeoTransform(dst_gt)

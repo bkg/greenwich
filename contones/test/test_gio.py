@@ -12,7 +12,7 @@ class ImageDriverTestCase(RasterTestBase):
     def test_copy_from(self):
         ds_copy = ImageDriver('PNG').copy(self.ds)
         self.assertIsInstance(ds_copy, Raster)
-        self.assertEqual(ds_copy.io.ext, 'png')
+        self.assertEqual(ds_copy.driver.ext, 'png')
         # Make sure we get the same number of raster bands back.
         self.assertEqual(*map(len, (self.ds, ds_copy)))
 
@@ -52,6 +52,7 @@ class ImageIOTestCase(RasterTestBase):
         # The compression name is changed slightly within the GDAL Dataset.
         expected_opt = 'COMPRESSION=DEFLATE'
         self.assertIn(expected_opt, rast.ds.GetMetadata_List('IMAGE_STRUCTURE'))
+        imgio.unlink()
 
     def test_getvalue(self):
         """Test ImageIO reading."""
