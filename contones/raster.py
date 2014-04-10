@@ -337,20 +337,19 @@ class Raster(object):
         gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
         return dest
 
-    def save(self, location):
-        """Save this instance to the path and format given by location.
+    def save(self, to, driver=None):
+        """Save this instance to the path and format provided.
 
         Arguments:
-        location -- output path as str or ImageIO instance
+        to -- output path as str or ImageIO instance
+        Keyword args:
+        driver -- GDAL driver name as string
         """
-        try:
-            r = location.copyfrom(self)
-        except AttributeError:
-            path = getattr(location, 'name', location)
-            imgio = contones.gio.ImageIO(path)
-            r = imgio.copyfrom(self)
-        finally:
-            r.close()
+        if not isinstance(to, contones.gio.ImageIO):
+            to = contones.gio.ImageIO(to)
+        driver = contones.gio.ImageDriver(driver) if driver else to.driver
+        r = driver.copy(self, to)
+        r.close()
 
     def SetProjection(self, to_sref):
         if not hasattr(to_sref, 'ExportToWkt'):
