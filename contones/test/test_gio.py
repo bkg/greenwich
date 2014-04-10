@@ -38,11 +38,11 @@ class ImageIOTestCase(RasterTestBase):
         size = (10, 10)
         rast = imgio.create(size)
         self.assertEqual(rast.shape, size)
-        self.assertEqual(rast.io.ext, 'img')
+        self.assertEqual(rast.driver.ext, 'img')
         f.close()
 
     def test_create_options(self):
-        opts = ['TILED=YES', 'COMPRESS=DEFLATE']
+        opts = {'TILED': 'YES', 'COMPRESS': 'DEFLATE'}
         imgio = ImageIO(driver='GTiff')
         rast = imgio.create((10, 10), options=opts)
         # We cannot verify metadata from an open GDALDataset, it must be
