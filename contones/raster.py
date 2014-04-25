@@ -244,8 +244,8 @@ class Raster(object):
         """
         size = size or self.shape
         band = self.GetRasterBand(1)
-        imgio = contones.gio.ImageIO(driver=self.driver.format)
-        rcopy = imgio.create(size, band.DataType)
+        imgio = contones.gio.ImageFileIO(suffix=self.driver.ext)
+        rcopy = self.driver.raster(imgio.name, size, datatype=band.DataType)
         imgio.close()
         rcopy.SetProjection(self.GetProjection())
         rcopy.SetGeoTransform(affine or self.GetGeoTransform())
@@ -337,18 +337,23 @@ class Raster(object):
         gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
         return dest
 
+    # TODO: allow ImageDriver instances?
     def save(self, to, driver=None):
         """Save this instance to the path and format provided.
 
         Arguments:
-        to -- output path as str or ImageIO instance
+        to -- output path as str, file, or ImageFileIO instance
         Keyword args:
         driver -- GDAL driver name as string
         """
-        if not isinstance(to, contones.gio.ImageIO):
-            to = contones.gio.ImageIO(to)
-        driver = contones.gio.ImageDriver(driver) if driver else to.driver
-        r = driver.copy(self, to)
+        path = getattr(to, 'name', to)
+        if driver:
+            driver = contones.gio.ImageDriver(driver)
+        elif isinstance(path, str):
+            driver = contones.gio.driver_for_path(path)
+        else:
+            raise Exception('Driver not found for %s' % driver or path)
+        r = driver.copy(self, path)
         r.close()
 
     def SetProjection(self, to_sref):
@@ -402,8 +407,9 @@ class Raster(object):
         dst_gt = vrt.GetGeoTransform()
         vrt = None
         # FIXME: Should not set proj in new()?
-        imgio = contones.gio.ImageIO(driver=self.driver.format)
-        dest = imgio.create((dst_xsize, dst_ysize, self.RasterCount), dtype)
+        imgio = contones.gio.ImageFileIO()
+        size = (dst_xsize, dst_ysize, self.RasterCount)
+        dest = self.driver.raster(imgio.name, size, dtype)
         imgio.close()
         dest.SetGeoTransform(dst_gt)
         dest.SetProjection(to_sref)

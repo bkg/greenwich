@@ -7,8 +7,8 @@ import unittest
 import numpy as np
 from osgeo import gdal, ogr, osr
 
-from contones.raster import Raster, geom_to_array, open as openras
-from contones.gio import ImageIO
+from contones.raster import Raster, geom_to_array
+from contones.gio import ImageFileIO
 from contones.geometry import Envelope
 from contones.srs import SpatialReference
 
@@ -109,9 +109,13 @@ class RasterTestCase(RasterTestBase):
         self.ds.save(f)
         b = f.read()
         self.assertGreater(f.file.tell(), 0)
+        img_header = 'EHFA_HEADER_TAG'
         # Read the image header.
-        img_header = b[:15]
-        self.assertEqual(img_header, 'EHFA_HEADER_TAG')
+        self.assertEqual(b[:15], img_header)
+        f.file.seek(0)
+        # Test with filename as str.
+        self.ds.save(f.name)
+        self.assertEqual(f.read()[:15], img_header)
         f.close()
         # Clean up associated files like .aux.xml, etc.
         paths = glob.glob(f.name.replace(ext, '*'))
@@ -119,11 +123,12 @@ class RasterTestCase(RasterTestBase):
             removed = map(os.unlink, paths)
         except OSError:
             pass
-        # Test save with ImageIO
-        imgio = ImageIO(driver='HFA')
+        imgio = ImageFileIO(suffix='.img')
+        # Test save with ImageFileIO object
         self.ds.save(imgio)
         # Test init from a vsimem path.
-        r = Raster(imgio.path)
+        r = Raster(imgio.name)
+        self.assertEqual(r.driver.ext, 'img')
         self.assertEqual(r.shape, self.ds.shape)
         self.assertEqual(r.envelope, self.ds.envelope)
         self.assertNotEqual(r, self.ds)
@@ -160,10 +165,7 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(d2.ReadRaster(), pixdat)
 
     def test_init(self):
-        #vsipath = '/vsicurl/ftp://ftp.cpc.ncep.noaa.gov/GIS/GRADS_GIS/GeoTIFF/TEMP/us_tmax/us.tmax_nohads_ll_20110705_float.tif'
-        vsipath = 'us.tmax_nohads_ll_20110705_float.tif'
-        tmax = Raster(vsipath)
-        self.assertTrue(tmax)
-        self.assertTrue(tmax.masked_array().max())
-        with openras(vsipath) as r:
+        self.assertTrue(self.ds)
+        self.ds.close()
+        with Raster(self.f) as r:
             self.assertIsInstance(r, Raster)
