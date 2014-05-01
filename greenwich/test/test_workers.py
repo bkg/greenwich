@@ -1,6 +1,6 @@
 import unittest
 
-from contones.workers import run_encoderpool, ImageIOPool
+from greenwich.workers import run_encoderpool, ImageIOPool
 from .test_raster import RasterTestBase
 
 

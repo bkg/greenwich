@@ -7,10 +7,10 @@ import unittest
 import numpy as np
 from osgeo import gdal, ogr, osr
 
-from contones.raster import ImageDriver, Raster, driver_for_path, geom_to_array
-from contones.gio import ImageFileIO
-from contones.geometry import Envelope
-from contones.srs import SpatialReference
+from greenwich.raster import ImageDriver, Raster, driver_for_path, geom_to_array
+from greenwich.gio import ImageFileIO
+from greenwich.geometry import Envelope
+from greenwich.srs import SpatialReference
 
 def create_gdal_datasource(fname):
     """Returns a GDAL Datasource for testing."""

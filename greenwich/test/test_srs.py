@@ -1,7 +1,7 @@
 import unittest
 from osgeo import osr
 
-from contones.srs import SpatialReference
+from greenwich.srs import SpatialReference
 
 
 class SpatialReferenceTestCase(unittest.TestCase):

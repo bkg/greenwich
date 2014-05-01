@@ -1,11 +1,11 @@
 import multiprocessing
 
-from contones.gio import ImageFileIO
-from contones.raster import Raster
+from greenwich.gio import ImageFileIO
+from greenwich.raster import Raster
 
 def _run_encoder(path, encoder_cls, geom=None):
     encoder = encoder_cls()
-    with contones.raster.Raster(path) as r:
+    with greenwich.raster.Raster(path) as r:
         if geom:
             with r.crop(geom) as cropped:
                 cropped.save(encoder)

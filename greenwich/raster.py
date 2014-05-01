@@ -5,9 +5,9 @@ import numpy as np
 from PIL import Image, ImageDraw
 from osgeo import gdal, gdalconst
 
-from contones.gio import ImageFileIO
-from contones.geometry import Envelope
-from contones.srs import SpatialReference
+from greenwich.gio import ImageFileIO
+from greenwich.geometry import Envelope
+from greenwich.srs import SpatialReference
 
 def available_drivers():
     """Returns a dictionary of enabled GDAL Driver metadata keyed by the

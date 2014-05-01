@@ -1,6 +1,6 @@
 import unittest
 
-from contones.geometry import Envelope
+from greenwich.geometry import Envelope
 
 
 class EnvelopeTestCase(unittest.TestCase):
