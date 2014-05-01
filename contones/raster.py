@@ -1,11 +1,44 @@
 """Raster data handling"""
+import os
+
 import numpy as np
 from PIL import Image, ImageDraw
 from osgeo import gdal, gdalconst
 
-import contones.gio
+from contones.gio import ImageFileIO
 from contones.geometry import Envelope
 from contones.srs import SpatialReference
+
+def available_drivers():
+    """Returns a dictionary of enabled GDAL Driver metadata keyed by the
+    'ShortName' attribute.
+    """
+    print 'calling available_drivers'
+    drivers = {}
+    for i in range(gdal.GetDriverCount()):
+        d = gdal.GetDriver(i)
+        drivers[d.ShortName] = d.GetMetadata()
+        d = None
+    return drivers
+
+def driver_for_path(path):
+    """Returns the gdal.Driver for a path or None based on the file extension.
+
+    Arguments:
+    path -- file path as str with a GDAL supported file extension
+    """
+    extsep = os.path.extsep
+    ext = (path.rsplit(extsep, 1)[-1] if extsep in path else path).lower()
+    avail = ImageDriver.registry if ext else {}
+    for k, v in avail.items():
+        avail_ext = v.get('DMD_EXTENSION', '').lower()
+        if ext == avail_ext:
+            return ImageDriver(gdal.GetDriverByName(k))
+    return None
+
+def driverdict_tolist(d):
+    """Returns a GDAL formatted options list from a dict."""
+    return map('='.join, d.items())
 
 def geom_to_array(geom, matrix_size, affine):
     """Converts an OGR polygon to a 2D NumPy array.
@@ -100,6 +133,116 @@ class AffineTransform(object):
         # Assumes north up images.
         return (self.origin[0], self.scale_x, 0.0, self.origin[1], 0.0,
                 self.scale_y)
+
+
+class ImageDriver(object):
+    """Wrap gdal.Driver"""
+    # GDAL driver default creation options.
+    defaults = {'img': {'COMPRESSED': 'YES'},
+                'nc': {'COMPRESS': 'DEFLATE'},
+                'tif': {'TILED': 'YES', 'COMPRESS': 'PACKBITS'}}
+    registry = available_drivers()
+
+    def __init__(self, driver=None):
+        """
+        Keyword args:
+        driver -- str GDALDriver name like 'GTiff' or GDALDriver instance
+        """
+        # Use geotiff as the default when path and driver are not provided.
+        if not driver:
+            driver = 'GTiff'
+        if isinstance(driver, str):
+            driver = gdal.GetDriverByName(driver)
+        if not isinstance(driver, gdal.Driver):
+            raise TypeError('No GDAL driver for {}'.format(driver))
+        self._driver = driver
+        self.options = self.defaults.get(self.ext, {})
+
+    def __getattr__(self, attr):
+        return getattr(self._driver, attr)
+
+    def __repr__(self):
+        return '{}: {}'.format(self.__class__.__name__, str(self.info))
+
+    def copy(self, source, dest, options=None):
+        """Returns a copied Raster instance.
+
+        Arguments:
+        source -- the source Raster instance or filepath as str
+        dest -- destination filepath as str
+        Keyword args:
+        options -- dict of dataset creation options
+        """
+        if not isinstance(source, Raster):
+            source = Raster(source)
+        if source.name == dest:
+            raise ValueError(
+                'Input and output are the same location: {}'.format(source.name))
+        options = driverdict_tolist(options or self.options)
+        ds = self.CreateCopy(dest, source.ds, options=options)
+        return Raster(ds)
+
+    def Create(self, *args, **kwargs):
+        """Calls Driver.Create() with optionally provided creation options as
+        dict, or falls back to driver specific defaults.
+        """
+        options = kwargs.pop('options', {})
+        kwargs['options'] = driverdict_tolist(options or self.options)
+        return self._driver.Create(*args, **kwargs)
+
+    def _is_empty(self, path):
+        """Returns True if file is empty or non-existent."""
+        try:
+            return os.path.getsize(path) == 0
+        except OSError:
+            # File does not even exist
+            return True
+
+    def raster(self, path, shape, datatype=gdal.GDT_Byte, options=None):
+        """Returns a new Raster instance.
+
+        gdal.Driver.Create() does not support all formats.
+
+        Arguments:
+        path -- file object or path as str
+        shape -- two or three-tuple of (xsize, ysize, bandcount)
+        datatype -- GDAL pixel data type
+        options -- dict of dataset creation options
+        """
+        path = getattr(path, 'name', path)
+        if len(shape) == 2:
+            shape += (1,)
+        nx, ny, bandcount = shape
+        if nx < 0 or ny < 0:
+            raise ValueError('Size cannot be negative')
+        # Do not write to a non-empty file.
+        if not self._is_empty(path):
+            errmsg = '{0} already exists, open with Raster({0})'.format(path)
+            raise IOError(errmsg)
+        ds = self.Create(path, nx, ny, bandcount, datatype, options=options)
+        if not ds:
+            raise ValueError(
+                'Could not create {} using {}'.format(path, str(self)))
+        return Raster(ds)
+
+    @property
+    def info(self):
+        """Returns a dict of gdal.Driver metadata."""
+        return self._driver.GetMetadata()
+
+    @property
+    def ext(self):
+        """Returns the file extension."""
+        return self.info.get('DMD_EXTENSION', '')
+
+    @property
+    def mimetype(self):
+        """Returns the MIME type."""
+        return self.info.get('DMD_MIMETYPE', 'application/octet-stream')
+
+    @property
+    def format(self):
+        return self._driver.ShortName
 
 
 class Raster(object):
@@ -231,7 +374,7 @@ class Raster(object):
     def driver(self):
         """Returns the underlying ImageDriver instance."""
         if self._driver is None:
-            self._driver = contones.gio.ImageDriver(self.ds.GetDriver())
+            self._driver = ImageDriver(self.ds.GetDriver())
         return self._driver
 
     def new(self, pixeldata=None, size=(), affine=None):
@@ -244,7 +387,7 @@ class Raster(object):
         """
         size = size or self.shape
         band = self.GetRasterBand(1)
-        imgio = contones.gio.ImageFileIO(suffix=self.driver.ext)
+        imgio = ImageFileIO(suffix=self.driver.ext)
         rcopy = self.driver.raster(imgio.name, size, datatype=band.DataType)
         imgio.close()
         rcopy.SetProjection(self.GetProjection())
@@ -348,9 +491,9 @@ class Raster(object):
         """
         path = getattr(to, 'name', to)
         if driver:
-            driver = contones.gio.ImageDriver(driver)
+            driver = ImageDriver(driver)
         elif isinstance(path, str):
-            driver = contones.gio.driver_for_path(path)
+            driver = driver_for_path(path)
         else:
             raise Exception('Driver not found for %s' % driver or path)
         r = driver.copy(self, path)
@@ -407,7 +550,7 @@ class Raster(object):
         dst_gt = vrt.GetGeoTransform()
         vrt = None
         # FIXME: Should not set proj in new()?
-        imgio = contones.gio.ImageFileIO()
+        imgio = ImageFileIO()
         size = (dst_xsize, dst_ysize, self.RasterCount)
         dest = self.driver.raster(imgio.name, size, dtype)
         imgio.close()
