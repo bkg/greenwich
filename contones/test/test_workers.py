@@ -1,6 +1,5 @@
 import unittest
 
-from contones.gio import ImageIO
 from contones.workers import run_encoderpool, ImageIOPool
 from .test_raster import RasterTestBase
 

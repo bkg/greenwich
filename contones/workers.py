@@ -1,7 +1,7 @@
 import multiprocessing
 
-import contones.gio
-import contones.raster
+from contones.gio import ImageFileIO
+from contones.raster import Raster
 
 def _run_encoder(path, encoder_cls, geom=None):
     encoder = encoder_cls()
@@ -64,18 +64,15 @@ class ImageIOPool(object):
         self.outq.put(self.sentinel)
 
     def run_job(self, path):
-        encoder = contones.gio.ImageIO(driver=self.drivername)
-        with contones.raster.Raster(path) as r:
+        imgio = ImageFileIO()
+        with Raster(path) as r:
             if self.geom:
                 with r.crop(self.geom) as cropped:
-                    cropped.save(encoder)
+                    cropped.save(imgio, self.drivername)
             else:
-                r.save(encoder)
-        buff = encoder.getvalue()
-        # Remove the dataset from memory
-        encoder.unlink()
-        #return buff
-        self.outq.put(buff)
+                r.save(imgio, self.drivername)
+        self.outq.put(imgio.read())
+        imgio.close()
 
     def get_results(self):
         self.run()
