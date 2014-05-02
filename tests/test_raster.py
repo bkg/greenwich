@@ -8,7 +8,7 @@ import numpy as np
 from osgeo import gdal, ogr, osr
 
 from greenwich.raster import ImageDriver, Raster, driver_for_path, geom_to_array
-from greenwich.gio import ImageFileIO
+from greenwich.io import ImageFileIO
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
 

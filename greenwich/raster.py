@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from osgeo import gdal, gdalconst
 
-from greenwich.gio import ImageFileIO
+from greenwich.io import ImageFileIO
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
 
@@ -13,7 +13,6 @@ def available_drivers():
     """Returns a dictionary of enabled GDAL Driver metadata keyed by the
     'ShortName' attribute.
     """
-    print 'calling available_drivers'
     drivers = {}
     for i in range(gdal.GetDriverCount()):
         d = gdal.GetDriver(i)

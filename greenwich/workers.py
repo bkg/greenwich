@@ -1,6 +1,6 @@
 import multiprocessing
 
-from greenwich.gio import ImageFileIO
+from greenwich.io import ImageFileIO
 from greenwich.raster import Raster
 
 def _run_encoder(path, encoder_cls, geom=None):

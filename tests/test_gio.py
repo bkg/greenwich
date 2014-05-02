@@ -3,7 +3,7 @@ import unittest
 from osgeo import gdal
 
 from .test_raster import RasterTestBase
-from greenwich.gio import ImageFileIO
+from greenwich.io import ImageFileIO
 
 
 class ImageFileIOTestCase(unittest.TestCase):
