@@ -9,18 +9,15 @@ from osgeo import gdal
 class ImageFileIO(object):
     _vsimem = '/vsimem'
 
-    def __init__(self, basename=None, suffix=None, mode='rb', delete=True):
+    def __init__(self, basename=None, suffix=None, mode='w+b'):
         basename = (basename or str(uuid.uuid4())) + (suffix or '')
         self.name = os.path.join(self._vsimem, basename)
-        vsif = gdal.VSIFOpenL(self.name, 'wb')
-        gdal.VSIFCloseL(vsif)
         self.vsif = gdal.VSIFOpenL(self.name, mode)
+        self.mode = mode
         self.closed = not self.readable()
 
     def __del__(self):
         self.close()
-
-    #def __iter__(self):
 
     def __enter__(self):
         return self
@@ -32,12 +29,9 @@ class ImageFileIO(object):
     def close(self):
         if not self.closed:
             gdal.VSIFCloseL(self.vsif)
-            self.unlink()
+            # Free allocated memory.
+            gdal.Unlink(self.name)
             self.closed = True
-
-    def is_temp(self):
-        """Returns true if this resides only in memory."""
-        return self.name.startswith(self._vsimem)
 
     def read(self, n=-1):
         #_complain_ifclosed(self.closed)
@@ -46,15 +40,17 @@ class ImageFileIO(object):
             n = fstat.size
         return gdal.VSIFReadL(1, n, self.vsif) or ''
 
-    #def readall(self):
-
     def readable(self):
         if self.vsif is None:
             raise IOError('Could not read from {}'.format(self.name))
         return True
 
-    #def readinto(self, b):
+    def readinto(self, b):
         #Read up to len(b) bytes into bytearray b and return the number of bytes read
+        data = self.read(len(b))
+        size = len(data)
+        b[:size] = data
+        return size
 
     def seek(self, offset, whence=0):
         gdal.VSIFSeekL(self.vsif, offset, whence)
@@ -66,12 +62,11 @@ class ImageFileIO(object):
     def tell(self):
         return gdal.VSIFTellL(self.vsif)
 
-    #def truncate(self, size=None):
-        #gdal.VSIFTruncateL
-
-    def unlink(self):
-        """Delete the file or vsimem path."""
-        gdal.Unlink(self.name)
+    def truncate(self, pos=None):
+        if pos is None:
+            pos = self.tell()
+        gdal.VSIFTruncateL(self.vsif, pos)
+        return pos
 
     def write(self):
         raise io.UnsupportedOperation(

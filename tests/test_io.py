@@ -34,3 +34,16 @@ class ImageFileIOTestCase(unittest.TestCase):
         self.assertEqual(self.imgio.tell(), 0)
         self.imgio.seek(2)
         self.assertEqual(self.imgio.tell(), 2)
+        self.imgio.seek(0, 2)
+        self.assertEqual(self.imgio.tell(), len(self.data))
+
+    def test_readinto(self):
+        size = len(self.data) / 2
+        b = bytearray(size)
+        self.imgio.readinto(b)
+        self.assertEqual(str(b), self.data[:size])
+
+    def test_truncate(self):
+        self.imgio.truncate(2)
+        self.imgio.seek(0, 2)
+        self.assertEqual(self.imgio.tell(), 2)
