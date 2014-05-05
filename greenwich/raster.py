@@ -17,7 +17,6 @@ def available_drivers():
     for i in range(gdal.GetDriverCount()):
         d = gdal.GetDriver(i)
         drivers[d.ShortName] = d.GetMetadata()
-        d = None
     return drivers
 
 def driver_for_path(path):
@@ -26,13 +25,11 @@ def driver_for_path(path):
     Arguments:
     path -- file path as str with a GDAL supported file extension
     """
-    extsep = os.path.extsep
-    ext = (path.rsplit(extsep, 1)[-1] if extsep in path else path).lower()
-    avail = ImageDriver.registry if ext else {}
-    for k, v in avail.items():
-        avail_ext = v.get('DMD_EXTENSION', '').lower()
-        if ext == avail_ext:
-            return ImageDriver(gdal.GetDriverByName(k))
+    ext = (os.path.splitext(path)[1][1:] or path).lower()
+    drivers = ImageDriver.registry if ext else {}
+    for name, meta in drivers.items():
+        if ext == meta.get('DMD_EXTENSION', '').lower():
+            return ImageDriver(name)
     return None
 
 def driverdict_tolist(d):
