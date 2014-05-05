@@ -390,12 +390,14 @@ class Raster(object):
         rcopy.SetGeoTransform(affine or self.GetGeoTransform())
         colors = band.GetColorTable()
         for outband in rcopy:
-            outband.SetNoDataValue(self.nodata)
+            if self.nodata is not None:
+                outband.SetNoDataValue(self.nodata)
             if colors:
                 outband.SetColorTable(colors)
         if pixeldata:
-            args = (0, 0) + size + (pixeldata,)
-            rcopy.WriteRaster(*args)
+            bands = range(1, size[-1] + 1) if len(size) > 2 else None
+            args = (0, 0) + size[:2] + (pixeldata,) + size[:2]
+            rcopy.WriteRaster(*args, band_list=bands)
         return rcopy
 
     def _mask(self, geom):
