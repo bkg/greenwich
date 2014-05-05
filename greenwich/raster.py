@@ -511,7 +511,7 @@ class Raster(object):
     @property
     def shape(self):
         """Returns a tuple of row, column, (band count if multidimensional)."""
-        shp = (self.RasterYSize, self.RasterXSize, self.RasterCount)
+        shp = (self.ds.RasterYSize, self.ds.RasterXSize, self.ds.RasterCount)
         return shp[:2] if shp[2] <= 1 else shp
 
     def _transform_maskgeom(self, geom):
@@ -543,13 +543,10 @@ class Raster(object):
         # src_wkt : left to default value --> will use the one from source
         vrt = gdal.AutoCreateWarpedVRT(self.ds, None, dest_wkt, interpolation,
                                        err_thresh)
-        dst_xsize = vrt.RasterXSize
-        dst_ysize = vrt.RasterYSize
+        size = (vrt.RasterXSize, vrt.RasterYSize, self.RasterCount)
         dst_gt = vrt.GetGeoTransform()
         vrt = None
-        # FIXME: Should not set proj in new()?
         imgio = ImageFileIO()
-        size = (dst_xsize, dst_ysize, self.RasterCount)
         dest = self.driver.raster(imgio.name, size, dtype)
         imgio.close()
         dest.SetGeoTransform(dst_gt)
