@@ -68,9 +68,10 @@ class ImageFileIO(object):
         gdal.VSIFTruncateL(self.vsif, pos)
         return pos
 
-    def write(self):
-        raise io.UnsupportedOperation(
-            '%s.write() is not supported' % self.__class__.__name__)
+    def write(self, data):
+        if isinstance(data, bytearray):
+            data = bytes(data)
+        gdal.VSIFWriteL(data, len(data), 1, self.vsif)
 
     def writable(self):
-        return False
+        return True

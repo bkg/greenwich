@@ -17,6 +17,7 @@ class ImageFileIOTestCase(unittest.TestCase):
         self.imgio.close()
         # VSIMem file should return None after closing.
         self.assertIsNone(gdal.VSIStatL(self.imgio.name))
+        self.assertTrue(self.imgio.closed)
 
     def test_read(self):
         imgio = ImageFileIO()
@@ -41,9 +42,21 @@ class ImageFileIOTestCase(unittest.TestCase):
         size = len(self.data) / 2
         b = bytearray(size)
         self.imgio.readinto(b)
-        self.assertEqual(str(b), self.data[:size])
+        self.assertEqual(bytes(b), self.data[:size])
 
     def test_truncate(self):
         self.imgio.truncate(2)
         self.imgio.seek(0, 2)
         self.assertEqual(self.imgio.tell(), 2)
+
+    def test_write(self):
+        f = ImageFileIO()
+        data = 'stuff'
+        f.write(data)
+        f.seek(0)
+        self.assertEqual(f.read(), data)
+        data = bytearray(range(10))
+        f.seek(0)
+        f.write(data)
+        f.seek(0)
+        self.assertEqual(f.read(), bytes(data))
