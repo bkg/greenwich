@@ -69,16 +69,23 @@ def count_unique(arr):
 class AffineTransform(object):
     """Affine transformation between projected and pixel coordinate spaces."""
 
-    def __init__(self, geotrans_tuple):
-        """
+    def __init__(self, ul_x, scale_x, c0, ul_y, c1, scale_y):
+        """Generally this will be initialized from a 5-element tuple in the
+        format returned by GetGeoTransform().
+
         Arguments:
-        geotrans_tuple -- geotransformation as a five element tuple like
-            (-124.625, 0.125, 0.0, 44.0, 0.0, -0.125,).
+        ul_x -- top left corner x coordinate
+        scale_x -- x scaling
+        c0 -- coefficient
+        ul_y -- top left corner y coordinate
+        c1 -- coefficient
+        scale_y -- y scaling
         """
         # Origin coordinate in projected space.
-        self.origin = geotrans_tuple[0], geotrans_tuple[3]
-        self.scale_x = geotrans_tuple[1]
-        self.scale_y = geotrans_tuple[5]
+        self.origin = (ul_x, ul_y)
+        self.scale_x = scale_x
+        self.scale_y = scale_y
+        self.coeffs = (c0, c1)
 
     def __repr__(self):
         return str(self.tuple)
@@ -127,8 +134,9 @@ class AffineTransform(object):
     @property
     def tuple(self):
         # Assumes north up images.
-        return (self.origin[0], self.scale_x, 0.0, self.origin[1], 0.0,
-                self.scale_y)
+        start = self.origin
+        c0, c1 = self.coeffs
+        return (start[0], self.scale_x, c0, start[1], c1, self.scale_y)
 
 
 class ImageDriver(object):
@@ -260,7 +268,7 @@ class Raster(object):
             raise IOError('Could not open %s' % dataset)
         self.ds = dataset
         self.name = self.ds.GetDescription()
-        self.affine = AffineTransform(self.GetGeoTransform())
+        self.affine = AffineTransform(*self.GetGeoTransform())
         self.sref = SpatialReference(dataset.GetProjection())
         self._nodata = None
         self._envelope = None
@@ -405,7 +413,7 @@ class Raster(object):
         env = Envelope.from_geom(geom)
         readargs = self.get_offset(env)
         dims = readargs[2:4]
-        affine = AffineTransform(self.GetGeoTransform())
+        affine = AffineTransform(*self.GetGeoTransform())
         # Update origin coordinate for the new affine transformation.
         affine.origin = env.ul
         # Without a simple envelope, this becomes a masking operation rather
@@ -470,7 +478,7 @@ class Raster(object):
         # Find the scaling factor for pixel size.
         factors = (size[0] / float(self.RasterXSize),
                    size[1] / float(self.RasterYSize))
-        affine = AffineTransform(self.GetGeoTransform())
+        affine = AffineTransform(*self.GetGeoTransform())
         affine.scale_x *= factors[0]
         affine.scale_y *= factors[1]
         dest = self.new(size=size, affine=affine.tuple)
@@ -505,7 +513,7 @@ class Raster(object):
 
     def SetGeoTransform(self, geotrans_tuple):
         """Sets the affine transformation."""
-        self.affine = AffineTransform(geotrans_tuple)
+        self.affine = AffineTransform(*geotrans_tuple)
         self.ds.SetGeoTransform(geotrans_tuple)
 
     @property
