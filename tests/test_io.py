@@ -3,12 +3,12 @@ import unittest
 from osgeo import gdal
 
 from .test_raster import RasterTestBase
-from greenwich.io import ImageFileIO
+from greenwich.io import MemFileIO
 
 
-class ImageFileIOTestCase(unittest.TestCase):
+class MemFileIOTestCase(unittest.TestCase):
     def setUp(self):
-        self.imgio = ImageFileIO()
+        self.imgio = MemFileIO()
         vsif = gdal.VSIFOpenL(self.imgio.name, 'wb')
         self.data = '0123'
         gdal.VSIFWriteL(self.data, len(self.data), 1, vsif)
@@ -20,7 +20,7 @@ class ImageFileIOTestCase(unittest.TestCase):
         self.assertTrue(self.imgio.closed)
 
     def test_read(self):
-        imgio = ImageFileIO()
+        imgio = MemFileIO()
         self.assertTrue(imgio.readable())
         # Empty file should return an empty string.
         self.assertEqual(imgio.read(), '')
@@ -50,7 +50,7 @@ class ImageFileIOTestCase(unittest.TestCase):
         self.assertEqual(self.imgio.tell(), 2)
 
     def test_write(self):
-        f = ImageFileIO()
+        f = MemFileIO()
         data = 'stuff'
         f.write(data)
         f.seek(0)

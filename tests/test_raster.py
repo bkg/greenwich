@@ -8,7 +8,7 @@ import numpy as np
 from osgeo import gdal, ogr, osr
 
 from greenwich.raster import ImageDriver, Raster, driver_for_path, geom_to_array
-from greenwich.io import ImageFileIO
+from greenwich.io import MemFileIO
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
 
@@ -124,8 +124,8 @@ class RasterTestCase(RasterTestBase):
             removed = map(os.unlink, paths)
         except OSError:
             pass
-        imgio = ImageFileIO(suffix='.img')
-        # Test save with ImageFileIO object
+        imgio = MemFileIO(suffix='.img')
+        # Test save with MemFileIO object
         self.ds.save(imgio)
         # Test init from a vsimem path.
         r = Raster(imgio.name)
@@ -191,7 +191,7 @@ class ImageDriverTestCase(RasterTestBase):
         self.imgdriver = ImageDriver('HFA')
 
     def test_copy(self):
-        imgio = ImageFileIO()
+        imgio = MemFileIO()
         ds_copy = ImageDriver('PNG').copy(self.ds, imgio.name)
         self.assertIsInstance(ds_copy, Raster)
         self.assertEqual(ds_copy.driver.ext, 'png')
@@ -219,7 +219,7 @@ class ImageDriverTestCase(RasterTestBase):
     def test_create_options(self):
         opts = {'TILED': 'YES', 'COMPRESS': 'DEFLATE'}
         driver = ImageDriver('GTiff')
-        imgio = ImageFileIO()
+        imgio = MemFileIO()
         rast = driver.raster(imgio.name, (10, 10), options=opts)
         # We cannot verify metadata from an open GDALDataset, it must be
         # reopened first.

@@ -6,7 +6,7 @@ import uuid
 from osgeo import gdal
 
 
-class ImageFileIO(object):
+class MemFileIO(object):
     _vsimem = '/vsimem'
 
     def __init__(self, basename=None, suffix=None, mode='w+b'):

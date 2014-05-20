@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from osgeo import gdal, gdalconst
 
-from greenwich.io import ImageFileIO
+from greenwich.io import MemFileIO
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
 
@@ -391,7 +391,7 @@ class Raster(object):
         """
         size = size or self.shape
         band = self.GetRasterBand(1)
-        imgio = ImageFileIO(suffix=self.driver.ext)
+        imgio = MemFileIO(suffix=self.driver.ext)
         rcopy = self.driver.raster(imgio.name, size, datatype=band.DataType)
         imgio.close()
         rcopy.SetProjection(self.GetProjection())
@@ -491,7 +491,7 @@ class Raster(object):
         """Save this instance to the path and format provided.
 
         Arguments:
-        to -- output path as str, file, or ImageFileIO instance
+        to -- output path as str, file, or MemFileIO instance
         Keyword args:
         driver -- GDAL driver name as string
         """
@@ -554,7 +554,7 @@ class Raster(object):
         size = (vrt.RasterXSize, vrt.RasterYSize, self.RasterCount)
         dst_gt = vrt.GetGeoTransform()
         vrt = None
-        imgio = ImageFileIO()
+        imgio = MemFileIO()
         dest = self.driver.raster(imgio.name, size, dtype)
         imgio.close()
         dest.SetGeoTransform(dst_gt)
