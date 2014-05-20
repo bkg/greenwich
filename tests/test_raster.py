@@ -12,11 +12,11 @@ from greenwich.io import ImageFileIO
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
 
-def create_gdal_datasource(fname):
+def create_gdal_datasource(fname, dtype=np.ubyte):
     """Returns a GDAL Datasource for testing."""
     xsize, ysize = 1000, 1000
     #np.random.randint(2, size=(xsize, ysize))
-    arr = np.ones((xsize, ysize), dtype=np.byte)
+    arr = np.ones((xsize, ysize), dtype=dtype)
     driver = gdal.GetDriverByName('GTiff')
     datasource = driver.Create(fname, xsize, ysize)
     band = datasource.GetRasterBand(1)
@@ -38,6 +38,7 @@ class RasterTestBase(unittest.TestCase):
         self.ds = Raster(create_gdal_datasource(self.f.name))
 
     def tearDown(self):
+        self.ds.close()
         self.f.close()
 
 
@@ -144,10 +145,10 @@ class RasterTestCase(RasterTestBase):
 
     def test_warp(self):
         epsg_id = 4326
-        d = self.ds.warp(epsg_id)
-        self.assertEqual(d.sref.srid, epsg_id)
-        self.assertNotEqual(d.shape, self.ds.shape)
-        self.assertEqual(d.array().shape, d.shape)
+        r = self.ds.warp(epsg_id)
+        self.assertEqual(r.sref.srid, epsg_id)
+        self.assertNotEqual(r.shape, self.ds.shape)
+        self.assertEqual(r.array().shape, r.shape)
 
     def test_resample(self):
         # Half the original resolution
@@ -160,9 +161,21 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(dcopy.nodata, self.ds.nodata)
         self.assertEqual(dcopy.shape, self.ds.shape)
         self.assertNotEqual(dcopy, self.ds)
-        pixdat = ''.join(map(str, range(10)))
-        d2 = self.ds.new(pixdat, (2, 5))
-        self.assertEqual(d2.ReadRaster(), pixdat)
+        # Create from bytes.
+        pixdat = bytes(bytearray(range(10)))
+        r2 = self.ds.new(pixdat, (2, 5))
+        self.assertEqual(r2.ReadRaster(), pixdat)
+        r2.close()
+        # Reduced size withouth pixel data.
+        size = tuple([x / 10 for x in self.ds.shape])
+        dsmall = self.ds.new(size=size)
+        self.assertEqual(dsmall.shape, size)
+        # Create with floating point values.
+        b2 = bytes(np.random.random((5, 5, 3)).data)
+        rf2 = rfloat.new(b2, (5, 5, 3))
+        self.assertEqual(*map(self.hexdigest, (rf2.ReadRaster(), b2)))
+        rfloat.close()
+        rf2.close()
 
     def test_init(self):
         self.assertTrue(self.ds)
@@ -197,6 +210,10 @@ class ImageDriverTestCase(RasterTestBase):
         # Cannot create from a non-empty file.
         self.assertRaises(IOError, self.imgdriver.raster, f.name, size)
         f.close()
+        shape = (10, 10, 3)
+        mem = ImageDriver('MEM')
+        with mem.raster('memds', shape, gdal.GDT_Float64) as r:
+            self.assertEqual(r.shape, shape)
 
     # TODO: store driver opts as instance attrs?
     def test_create_options(self):
