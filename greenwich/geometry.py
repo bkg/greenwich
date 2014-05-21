@@ -1,4 +1,8 @@
 from osgeo import ogr
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 
 class Envelope(object):
@@ -122,3 +126,14 @@ class Envelope(object):
     @property
     def width(self):
         return self.max_x - self.min_x
+
+
+def Geometry(*args, **kwargs):
+    """Returns an ogr.Geometry optionally created from a geojson str or dict."""
+    # Look for geojson as a positional or keyword arg.
+    arg = kwargs.pop('geojson', None) or len(args) and args[0]
+    if hasattr(arg, 'keys'):
+        return ogr.CreateGeometryFromJson(json.dumps(arg))
+    elif hasattr(arg, 'startswith') and arg.startswith('{'):
+        return ogr.CreateGeometryFromJson(arg)
+    return ogr.Geometry(*args, **kwargs)
