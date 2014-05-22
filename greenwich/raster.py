@@ -166,7 +166,7 @@ class ImageDriver(object):
         return getattr(self._driver, attr)
 
     def __repr__(self):
-        return '{}: {}'.format(self.__class__.__name__, str(self.info))
+        return '{}: {}'.format(self.__class__.__name__, self._driver.LongName)
 
     def copy(self, source, dest, options=None):
         """Returns a copied Raster instance.
