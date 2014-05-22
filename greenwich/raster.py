@@ -273,12 +273,20 @@ class Raster(object):
         self._nodata = None
         self._envelope = None
         self._driver = None
-        # Closes the GDALDataset
+        self.closed = False
+        # Closes the gdal.Dataset
         dataset = None
 
     def __getattr__(self, attr):
         """Delegate calls to the GDALDataset."""
-        return getattr(self.ds, attr)
+        try:
+            return getattr(self.ds, attr)
+        except AttributeError:
+            if self.closed:
+                raise ValueError('Operation on closed raster file')
+            raise AttributeError(
+                '{} has no attribute "{}"'.format(self.__class__.__name__,
+                                                  attr))
 
     def __getitem__(self, i):
         """Returns a single Band instance.
@@ -319,7 +327,7 @@ class Raster(object):
         return not self.__eq__(another)
 
     def __repr__(self):
-        return '{}({})'.format(self.__class__.__name__, self.name)
+        return '{}: {}'.format(self.__class__.__name__, self.name)
 
     def array(self, envelope=()):
         """Returns an NDArray, optionally subset by spatial envelope.
@@ -336,6 +344,7 @@ class Raster(object):
         """Close the GDAL dataset."""
         # De-ref the GDAL Dataset to completely close it.
         self.ds = None
+        self.closed = True
 
     def clip(self, geom):
         """Returns a new raster instance clipped to a particular geometry.

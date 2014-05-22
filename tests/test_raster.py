@@ -104,6 +104,14 @@ class RasterTestCase(RasterTestBase):
             m = r.masked_array()
         self.assertLess(m.shape, self.ds.shape)
 
+    def test_close(self):
+        with self.assertRaises(AttributeError):
+            self.ds.abc123
+        self.ds.close()
+        self.assertTrue(self.ds.closed)
+        with self.assertRaises(ValueError):
+            self.ds.GetRasterBand(1)
+
     def test_save(self):
         ext = '.img'
         f = tempfile.NamedTemporaryFile(suffix=ext)
