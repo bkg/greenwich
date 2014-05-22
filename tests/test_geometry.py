@@ -1,6 +1,10 @@
 import unittest
+import json
 
-from greenwich.geometry import Envelope
+from osgeo import ogr
+
+from greenwich.geometry import Envelope, Geometry
+from greenwich.srs import SpatialReference
 
 
 class EnvelopeTestCase(unittest.TestCase):
@@ -41,3 +45,32 @@ class EnvelopeTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             Envelope(80, 2, 1, 2)
             Envelope(2, 1, 1, 2)
+
+
+class GeometryTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.gdict = {'type':'Polygon',
+                      'coordinates': [[[-123,47],[-123,48],[-122,49],
+                                       [-121,48],[-121,47],[-123,47]]]}
+
+    def test_init(self):
+        geom = Geometry(self.gdict)
+        jsondata = geom.ExportToJson()
+        self.assertEqual(json.loads(jsondata), self.gdict)
+
+        jsondata = json.loads(Geometry(geojson=self.gdict).ExportToJson())
+        self.assertEqual(jsondata, self.gdict)
+
+        wkt = 'POLYGON ((0 0,5 0,5 5,0 5,0 0))'
+        self.assertEqual(Geometry(wkt=wkt).ExportToWkt(), wkt)
+        self.assertEqual(Geometry(ogr.wkbPolygon).GetGeometryType(),
+                         ogr.wkbPolygon)
+
+    def test_init_spatialref(self):
+        epsg_id = 4326
+        sref = SpatialReference(epsg_id)
+        geom = Geometry(self.gdict, srs=epsg_id)
+        self.assertEqual(geom.GetSpatialReference(), sref)
+        geom = Geometry(self.gdict, srs=sref)
+        self.assertEqual(geom.GetSpatialReference(), sref)

@@ -4,6 +4,8 @@ try:
 except ImportError:
     import json
 
+from greenwich.srs import SpatialReference
+
 
 class Envelope(object):
     """Rectangular bounding extent.
@@ -129,11 +131,20 @@ class Envelope(object):
 
 
 def Geometry(*args, **kwargs):
-    """Returns an ogr.Geometry optionally created from a geojson str or dict."""
+    """Returns an ogr.Geometry instance optionally created from a geojson str
+    or dict. The spatial reference may also be provided.
+    """
+    srs = kwargs.pop('srs', None)
     # Look for geojson as a positional or keyword arg.
     arg = kwargs.pop('geojson', None) or len(args) and args[0]
     if hasattr(arg, 'keys'):
-        return ogr.CreateGeometryFromJson(json.dumps(arg))
+        geom = ogr.CreateGeometryFromJson(json.dumps(arg))
     elif hasattr(arg, 'startswith') and arg.startswith('{'):
-        return ogr.CreateGeometryFromJson(arg)
-    return ogr.Geometry(*args, **kwargs)
+        geom = ogr.CreateGeometryFromJson(arg)
+    else:
+        geom = ogr.Geometry(*args, **kwargs)
+    if srs and geom:
+        if not isinstance(srs, SpatialReference):
+            srs = SpatialReference(srs)
+        geom.AssignSpatialReference(srs)
+    return geom
