@@ -319,8 +319,7 @@ class Raster(object):
         return not self.__eq__(another)
 
     def __repr__(self):
-        return '{}({})'.format(self.__class__.__name__,
-                               self.ds.GetDescription())
+        return '{}({})'.format(self.__class__.__name__, self.name)
 
     def array(self, envelope=()):
         """Returns an NDArray, optionally subset by spatial envelope.
