@@ -90,9 +90,9 @@ class RasterTestCase(RasterTestBase):
         px_b = self.hexdigest(cropped.ReadRaster())
         self.assertEqual(px_a, px_b)
 
-    def test_mask(self):
-        """Test masking a raster with a geometry."""
-        rast = self.ds.mask(self.geom)
+    def test_clip(self):
+        """Test clipping a raster with a geometry."""
+        rast = self.ds.clip(self.geom)
         arr = rast.array()
         rast.close()
         # First element should be masked.
@@ -100,7 +100,7 @@ class RasterTestCase(RasterTestBase):
         # Center element should be unmasked.
         center = arr.shape[0] / 2, arr.shape[1] / 2
         self.assertEqual(arr[center], 1)
-        with self.ds.mask(self.bbox) as r:
+        with self.ds.clip(self.bbox) as r:
             m = r.masked_array()
         self.assertLess(m.shape, self.ds.shape)
 

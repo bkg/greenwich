@@ -338,6 +338,14 @@ class Raster(object):
         # De-ref the GDAL Dataset to completely close it.
         self.ds = None
 
+    def clip(self, geom):
+        """Returns a new raster instance clipped to a particular geometry.
+
+        Arguments:
+        geom -- OGR Polygon or MultiPolygon
+        """
+        return self._mask(geom)
+
     def crop(self, bbox):
         """Returns a new raster instance cropped to a bounding box.
 
@@ -430,14 +438,6 @@ class Raster(object):
             pixbuf = self.ds.ReadRaster(*readargs)
         clone = self.new(pixbuf, dims, affine.tuple)
         return clone
-
-    def mask(self, geom):
-        """Returns a new raster instance masked to a particular geometry.
-
-        Arguments:
-        geom -- OGR Polygon or MultiPolygon
-        """
-        return self._mask(geom)
 
     def masked_array(self, envelope=()):
         """Returns a MaskedArray using nodata values.
