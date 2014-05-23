@@ -14,9 +14,8 @@ from greenwich.srs import SpatialReference
 
 def create_gdal_datasource(fname, dtype=np.ubyte):
     """Returns a GDAL Datasource for testing."""
-    xsize, ysize = 1000, 1000
-    #np.random.randint(2, size=(xsize, ysize))
-    arr = np.ones((xsize, ysize), dtype=dtype)
+    xsize, ysize = 800, 1000
+    arr = np.ones((ysize, xsize), dtype=dtype)
     driver = gdal.GetDriverByName('GTiff')
     datasource = driver.Create(fname, xsize, ysize)
     band = datasource.GetRasterBand(1)
@@ -148,7 +147,7 @@ class RasterTestCase(RasterTestBase):
     def test_geom_to_array(self):
         g = self.geom.Clone()
         g.TransformTo(self.ds.sref)
-        arr = geom_to_array(g, self.ds.shape, self.ds.affine)
+        arr = geom_to_array(g, self.ds.size, self.ds.affine)
         self.assertEqual(arr.shape, self.ds.shape)
         self.assertEqual(arr.min(), 0)
         self.assertEqual(arr.max(), 1)
@@ -162,9 +161,9 @@ class RasterTestCase(RasterTestBase):
 
     def test_resample(self):
         # Half the original resolution
-        dims = tuple([i / 2 for i in self.ds.shape])
-        output = self.ds.resample(dims)
-        self.assertEqual(output.shape, dims)
+        size = tuple([i / 2 for i in self.ds.size])
+        output = self.ds.resample(size)
+        self.assertEqual(output.size, size)
 
     def test_new(self):
         dcopy = self.ds.new()
@@ -177,9 +176,14 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(r2.ReadRaster(), pixdat)
         r2.close()
         # Reduced size withouth pixel data.
-        size = tuple([x / 10 for x in self.ds.shape])
+        size = tuple([x / 10 for x in self.ds.size])
         dsmall = self.ds.new(size=size)
-        self.assertEqual(dsmall.shape, size)
+        self.assertEqual(dsmall.size, size)
+        rfloat = ImageDriver('MEM').raster('memds', (10, 10, 3), gdal.GDT_Float64)
+        arr = np.random.random((10, 10, 3))
+        b = bytes(arr.data)
+        rfloat.WriteRaster(0, 0, rfloat.RasterXSize, rfloat.RasterYSize, b)
+        self.assertEqual(rfloat.ReadRaster(), b)
         # Create with floating point values.
         b2 = bytes(np.random.random((5, 5, 3)).data)
         rf2 = rfloat.new(b2, (5, 5, 3))

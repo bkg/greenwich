@@ -36,15 +36,15 @@ def driverdict_tolist(d):
     """Returns a GDAL formatted options list from a dict."""
     return map('='.join, d.items())
 
-def geom_to_array(geom, matrix_size, affine):
+def geom_to_array(geom, size, affine):
     """Converts an OGR polygon to a 2D NumPy array.
 
     Arguments:
     geom -- OGR Polygon or MultiPolygon
-    matrix_size -- array size in pixels as a tuple of (width, height)
+    size -- array size in pixels as a tuple of (width, height)
     affine -- AffineTransform
     """
-    img = Image.new('L', matrix_size, 1)
+    img = Image.new('L', size, 1)
     draw = ImageDraw.Draw(img)
     if not geom.GetGeometryName().startswith('MULTI'):
         geom = [geom]
@@ -202,7 +202,7 @@ class ImageDriver(object):
             # File does not even exist
             return True
 
-    def raster(self, path, shape, datatype=gdal.GDT_Byte, options=None):
+    def raster(self, path, shape, bandtype=gdal.GDT_Byte, options=None):
         """Returns a new Raster instance.
 
         gdal.Driver.Create() does not support all formats.
@@ -210,7 +210,7 @@ class ImageDriver(object):
         Arguments:
         path -- file object or path as str
         shape -- two or three-tuple of (xsize, ysize, bandcount)
-        datatype -- GDAL pixel data type
+        bandtype -- GDAL pixel data type
         options -- dict of dataset creation options
         """
         path = getattr(path, 'name', path)
@@ -223,7 +223,7 @@ class ImageDriver(object):
         if not self._is_empty(path):
             errmsg = '%s already exists, open with Raster()' % path
             raise IOError(errmsg)
-        ds = self.Create(path, nx, ny, bandcount, datatype, options=options)
+        ds = self.Create(path, nx, ny, bandcount, bandtype, options=options)
         if not ds:
             raise ValueError(
                 'Could not create %s using %s' % (path, str(self)))
@@ -315,7 +315,7 @@ class Raster(object):
         return True
 
     def __len__(self):
-        return self.RasterCount
+        return self.ds.RasterCount
 
     def __eq__(self, another):
         if type(another) is type(self):
@@ -404,10 +404,10 @@ class Raster(object):
         size -- tuple of image size (width, height)
         affine -- affine transformation tuple
         """
-        size = size or self.shape
+        size = size or self.size + (len(self),)
         band = self.GetRasterBand(1)
         imgio = MemFileIO(suffix='.%s' % self.driver.ext)
-        rcopy = self.driver.raster(imgio.name, size, datatype=band.DataType)
+        rcopy = self.driver.raster(imgio.name, size, bandtype=band.DataType)
         imgio.close()
         rcopy.SetProjection(self.GetProjection())
         rcopy.SetGeoTransform(affine or self.GetGeoTransform())
@@ -528,6 +528,11 @@ class Raster(object):
         shp = (self.ds.RasterYSize, self.ds.RasterXSize, self.ds.RasterCount)
         return shp[:2] if shp[2] <= 1 else shp
 
+    @property
+    def size(self):
+        """Returns a 2-tuple of (width, height) in pixels."""
+        return (self.ds.RasterXSize, self.ds.RasterYSize)
+
     def _transform_maskgeom(self, geom):
         if isinstance(geom, Envelope):
             geom = geom.to_geom()
@@ -557,7 +562,7 @@ class Raster(object):
         # src_wkt : left to default value --> will use the one from source
         vrt = gdal.AutoCreateWarpedVRT(self.ds, None, dest_wkt, interpolation,
                                        err_thresh)
-        size = (vrt.RasterXSize, vrt.RasterYSize, self.RasterCount)
+        size = (vrt.RasterXSize, vrt.RasterYSize, len(self))
         dst_gt = vrt.GetGeoTransform()
         vrt = None
         imgio = MemFileIO()
