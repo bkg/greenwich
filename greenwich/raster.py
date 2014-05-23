@@ -268,6 +268,8 @@ class Raster(object):
             raise IOError('Could not open %s' % dataset)
         self.ds = dataset
         self.name = self.ds.GetDescription()
+        # Bands are not zero based, available bands are a 1-based list of ints.
+        self.bandlist = range(1, len(self) + 1)
         self.affine = AffineTransform(*self.GetGeoTransform())
         self.sref = SpatialReference(dataset.GetProjection())
         self._nodata = None
@@ -298,10 +300,8 @@ class Raster(object):
             raise IndexError('No band for %s' % i)
         return band
 
-    #TODO: handle subdataset iteration
     def __iter__(self):
-        # Bands are not zero based
-        for i in range(1, self.RasterCount + 1):
+        for i in self.bandlist:
             yield self[i]
 
     def __del__(self):
@@ -373,6 +373,10 @@ class Raster(object):
             self._envelope = Envelope(origin[0], ll_y, ur_x, origin[1])
         return self._envelope
 
+    def frombytes(self, bytedata):
+        w, h = self.size
+        self.ds.WriteRaster(0, 0, w, h, bytedata, band_list=self.bandlist)
+
     def get_offset(self, envelope):
         """Returns a 4-tuple pixel window (x_offset, y_offset, x_size, y_size).
 
@@ -418,9 +422,7 @@ class Raster(object):
             if colors:
                 outband.SetColorTable(colors)
         if pixeldata:
-            bands = range(1, size[-1] + 1) if len(size) > 2 else None
-            args = (0, 0) + size[:2] + (pixeldata,) + size[:2]
-            rcopy.WriteRaster(*args, band_list=bands)
+            rcopy.frombytes(pixeldata)
         return rcopy
 
     def _mask(self, geom):
@@ -557,9 +559,7 @@ class Raster(object):
         dest_wkt = to_sref.ExportToWkt()
         dtype = self[1].DataType
         err_thresh = 0.125
-        # Call AutoCreateWarpedVRT() to fetch default values for target raster
-        # dimensions and geotransform
-        # src_wkt : left to default value --> will use the one from source
+        # Determine new values for target raster dimensions and geotransform.
         vrt = gdal.AutoCreateWarpedVRT(self.ds, None, dest_wkt, interpolation,
                                        err_thresh)
         size = (vrt.RasterXSize, vrt.RasterYSize, len(self))
@@ -578,4 +578,10 @@ class Raster(object):
         return dest
 
 
+# Alias the raster constructor as open().
 open = Raster
+
+def frombytes(data, size, bandtype=gdal.GDT_Byte):
+    r = ImageDriver('MEM').raster('', size, bandtype)
+    r.frombytes(data)
+    return r

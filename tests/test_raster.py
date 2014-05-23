@@ -7,7 +7,8 @@ import unittest
 import numpy as np
 from osgeo import gdal, ogr, osr
 
-from greenwich.raster import ImageDriver, Raster, driver_for_path, geom_to_array
+from greenwich.raster import (ImageDriver, Raster, driver_for_path,
+    geom_to_array, frombytes)
 from greenwich.io import MemFileIO
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
@@ -110,6 +111,13 @@ class RasterTestCase(RasterTestBase):
         self.assertTrue(self.ds.closed)
         with self.assertRaises(ValueError):
             self.ds.GetRasterBand(1)
+
+    def test_frombytes(self):
+        shape = (2, 3, 5)
+        pixdat = bytes(np.ones(shape, dtype=np.float32).data)
+        r = frombytes(pixdat, (3, 2, 5), gdal.GDT_Float32)
+        self.assertEqual(r.shape, shape)
+        self.assertEqual(r.ReadRaster(), pixdat)
 
     def test_save(self):
         ext = '.img'
