@@ -507,8 +507,8 @@ class Raster(object):
             driver = ImageDriver(driver)
         elif isinstance(path, str):
             driver = driver_for_path(path)
-        else:
-            raise Exception('Driver not found for %s' % driver or path)
+        if driver is None:
+            raise ValueError('Driver not found for %s' % path)
         r = driver.copy(self, path)
         r.close()
 

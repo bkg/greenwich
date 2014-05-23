@@ -141,6 +141,8 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(r.shape, self.ds.shape)
         self.assertEqual(r.envelope, self.ds.envelope)
         self.assertNotEqual(r, self.ds)
+        # Bad file extensions should fail.
+        self.assertRaises(ValueError, r.save, 'fail.xxx')
         r.close()
 
     def test_geom_to_array(self):
