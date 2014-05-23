@@ -42,7 +42,7 @@ class MemFileIO(object):
 
     def readable(self):
         if self.vsif is None:
-            raise IOError('Could not read from {}'.format(self.name))
+            raise IOError('Could not read from %s' % self.name)
         return True
 
     def readinto(self, b):

@@ -158,7 +158,7 @@ class ImageDriver(object):
         if isinstance(driver, str):
             driver = gdal.GetDriverByName(driver)
         if not isinstance(driver, gdal.Driver):
-            raise TypeError('No GDAL driver for {}'.format(driver))
+            raise TypeError('No GDAL driver for %s' % driver)
         self._driver = driver
         self.options = self.defaults.get(self.ext, {})
 
@@ -166,7 +166,7 @@ class ImageDriver(object):
         return getattr(self._driver, attr)
 
     def __repr__(self):
-        return '{}: {}'.format(self.__class__.__name__, self._driver.LongName)
+        return '%s: %s' % (self.__class__.__name__, self._driver.LongName)
 
     def copy(self, source, dest, options=None):
         """Returns a copied Raster instance.
@@ -181,7 +181,7 @@ class ImageDriver(object):
             source = Raster(source)
         if source.name == dest:
             raise ValueError(
-                'Input and output are the same location: {}'.format(source.name))
+                'Input and output are the same location: %s' % source.name)
         options = driverdict_tolist(options or self.options)
         ds = self.CreateCopy(dest, source.ds, options=options)
         return Raster(ds)
@@ -221,12 +221,12 @@ class ImageDriver(object):
             raise ValueError('Size cannot be negative')
         # Do not write to a non-empty file.
         if not self._is_empty(path):
-            errmsg = '{0} already exists, open with Raster({0})'.format(path)
+            errmsg = '%s already exists, open with Raster()' % path
             raise IOError(errmsg)
         ds = self.Create(path, nx, ny, bandcount, datatype, options=options)
         if not ds:
             raise ValueError(
-                'Could not create {} using {}'.format(path, str(self)))
+                'Could not create %s using %s' % (path, str(self)))
         return Raster(ds)
 
     @property
@@ -285,8 +285,7 @@ class Raster(object):
             if self.closed:
                 raise ValueError('Operation on closed raster file')
             raise AttributeError(
-                '{} has no attribute "{}"'.format(self.__class__.__name__,
-                                                  attr))
+                '%s has no attribute "%s"' % (self.__class__.__name__, attr))
 
     def __getitem__(self, i):
         """Returns a single Band instance.
@@ -296,7 +295,7 @@ class Raster(object):
         """
         band = self.GetRasterBand(i)
         if not band:
-            raise IndexError('No band for {}'.format(i))
+            raise IndexError('No band for %s' % i)
         return band
 
     #TODO: handle subdataset iteration
@@ -327,7 +326,7 @@ class Raster(object):
         return not self.__eq__(another)
 
     def __repr__(self):
-        return '{}: {}'.format(self.__class__.__name__, self.name)
+        return '%s: %s' % (self.__class__.__name__, self.name)
 
     def array(self, envelope=()):
         """Returns an NDArray, optionally subset by spatial envelope.
