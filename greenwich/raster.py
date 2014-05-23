@@ -407,7 +407,7 @@ class Raster(object):
         """
         size = size or self.shape
         band = self.GetRasterBand(1)
-        imgio = MemFileIO(suffix=self.driver.ext)
+        imgio = MemFileIO(suffix='.%s' % self.driver.ext)
         rcopy = self.driver.raster(imgio.name, size, datatype=band.DataType)
         imgio.close()
         rcopy.SetProjection(self.GetProjection())
