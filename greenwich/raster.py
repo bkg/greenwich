@@ -493,17 +493,16 @@ class Raster(object):
         gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
         return dest
 
-    # TODO: allow ImageDriver instances?
     def save(self, to, driver=None):
         """Save this instance to the path and format provided.
 
         Arguments:
         to -- output path as str, file, or MemFileIO instance
         Keyword args:
-        driver -- GDAL driver name as string
+        driver -- GDAL driver name as string or ImageDriver
         """
         path = getattr(to, 'name', to)
-        if driver:
+        if isinstance(driver, str):
             driver = ImageDriver(driver)
         elif isinstance(path, str):
             driver = driver_for_path(path)
