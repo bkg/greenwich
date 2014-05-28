@@ -45,7 +45,7 @@ class Envelope(object):
             yield i
 
     def __repr__(self):
-        return str(self.tuple)
+        return '<%s: %r>' % (self.__class__.__name__, self.tuple)
 
     def __sub__(self, i):
         return self.__add__(-i)

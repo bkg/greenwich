@@ -88,7 +88,7 @@ class AffineTransform(object):
         self.coeffs = (c0, c1)
 
     def __repr__(self):
-        return str(self.tuple)
+        return '<%s %r>' % (self.__class__.__name__, self.tuple)
 
     def __eq__(self, another):
         return self.tuple == getattr(another, 'tuple', None)
@@ -166,7 +166,7 @@ class ImageDriver(object):
         return getattr(self._driver, attr)
 
     def __repr__(self):
-        return '%s: %s' % (self.__class__.__name__, self._driver.LongName)
+        return '%s(%r)' % (self.__class__.__name__, self._driver.ShortName)
 
     def copy(self, source, dest, options=None):
         """Returns a copied Raster instance.
@@ -326,7 +326,8 @@ class Raster(object):
         return not self.__eq__(another)
 
     def __repr__(self):
-        return '%s: %s' % (self.__class__.__name__, self.name)
+        status = 'closed' if self.closed else 'open'
+        return '<%s: %s %r>' % (self.__class__.__name__, status, self.name)
 
     def array(self, envelope=()):
         """Returns an NDArray, optionally subset by spatial envelope.

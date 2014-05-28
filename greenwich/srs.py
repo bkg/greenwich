@@ -17,14 +17,17 @@ class SpatialReference(osr.SpatialReference):
             # Add EPSG authority if applicable
             self.AutoIdentifyEPSG()
 
-    def __repr__(self):
-        return self.wkt
-
     def __eq__(self, another):
         return bool(self.IsSame(another))
 
     def __ne__(self, another):
         return not self.__eq__(another)
+
+    def __repr__(self):
+        return '<%s %r>' % (self.__class__.__name__, self.proj4)
+
+    def __str__(self):
+        return self.wkt
 
     @property
     def srid(self):
