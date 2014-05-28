@@ -150,6 +150,9 @@ class RasterTestCase(RasterTestBase):
         self.assertNotEqual(r, self.ds)
         # Bad file extensions should fail.
         self.assertRaises(ValueError, r.save, 'fail.xxx')
+        with MemFileIO() as memio:
+            r.save(memio, ImageDriver('HFA'))
+            self.assertEqual(memio.read(15), img_header)
         r.close()
 
     def test_geom_to_array(self):
@@ -187,12 +190,12 @@ class RasterTestCase(RasterTestBase):
         size = tuple([x / 10 for x in self.ds.size])
         dsmall = self.ds.new(size=size)
         self.assertEqual(dsmall.size, size)
-        rfloat = ImageDriver('MEM').raster('memds', (10, 10, 3), gdal.GDT_Float64)
-        arr = np.random.random((10, 10, 3))
-        b = bytes(arr.data)
+        # Create with floating point values.
+        rfloat = ImageDriver('MEM').raster('memds', (10, 10, 3),
+                                           gdal.GDT_Float64)
+        b = bytes(np.random.random((10, 10, 3)).data)
         rfloat.WriteRaster(0, 0, rfloat.RasterXSize, rfloat.RasterYSize, b)
         self.assertEqual(rfloat.ReadRaster(), b)
-        # Create with floating point values.
         b2 = bytes(np.random.random((5, 5, 3)).data)
         rf2 = rfloat.new(b2, (5, 5, 3))
         self.assertEqual(*map(self.hexdigest, (rf2.ReadRaster(), b2)))
