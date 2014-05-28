@@ -295,7 +295,7 @@ class Raster(object):
         This is a one-based index which matches the GDAL approach of handling
         multiband images.
         """
-        band = self.GetRasterBand(i)
+        band = self.ds.GetRasterBand(i)
         if not band:
             raise IndexError('No band for %s' % i)
         return band
@@ -369,8 +369,8 @@ class Raster(object):
         """
         if self._envelope is None:
             origin = self.affine.origin
-            ur_x = origin[0] + self.RasterXSize * self.affine.scale_x
-            ll_y = origin[1] + self.RasterYSize * self.affine.scale_y
+            ur_x = origin[0] + self.ds.RasterXSize * self.affine.scale_x
+            ll_y = origin[1] + self.ds.RasterYSize * self.affine.scale_y
             self._envelope = Envelope(origin[0], ll_y, ur_x, origin[1])
         return self._envelope
 
@@ -388,10 +388,10 @@ class Raster(object):
             envelope = Envelope(*envelope)
         if not (self.envelope.contains(envelope) or
                 self.envelope.intersects(envelope)):
-            raise ValueError('Envelope does not intersect with this extent.')
+            raise ValueError('Envelope does not intersect with this extent')
         ul_px, lr_px = self.affine.transform((envelope.ul, envelope.lr))
-        nx = min(lr_px[0] - ul_px[0], self.RasterXSize - ul_px[0])
-        ny = min(lr_px[1] - ul_px[1], self.RasterYSize - ul_px[1])
+        nx = min(lr_px[0] - ul_px[0], self.ds.RasterXSize - ul_px[0])
+        ny = min(lr_px[1] - ul_px[1], self.ds.RasterYSize - ul_px[1])
         return ul_px + (nx, ny)
 
     @property
@@ -476,7 +476,7 @@ class Raster(object):
         default.
         """
         if len(args) < 4:
-            args = (0, 0, self.RasterXSize, self.RasterYSize)
+            args = (0, 0, self.ds.RasterXSize, self.ds.RasterYSize)
         return self.ds.ReadRaster(*args, **kwargs)
 
     def resample(self, size, interpolation=gdalconst.GRA_NearestNeighbour):
