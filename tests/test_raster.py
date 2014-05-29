@@ -152,7 +152,7 @@ class RasterTestCase(RasterTestBase):
         self.assertRaises(ValueError, r.save, 'fail.xxx')
         with MemFileIO() as memio:
             r.save(memio, ImageDriver('HFA'))
-            self.assertEqual(memio.read(15), img_header)
+        self.assertEqual(memio.read(15), img_header)
         r.close()
 
     def test_geom_to_array(self):
@@ -205,8 +205,9 @@ class RasterTestCase(RasterTestBase):
     def test_init(self):
         self.assertTrue(self.ds)
         self.ds.close()
-        with Raster(self.f) as r:
-            self.assertIsInstance(r, Raster)
+        r = Raster(self.f)
+        self.assertIsInstance(r, Raster)
+        r.close()
 
 
 class ImageDriverTestCase(RasterTestBase):
@@ -238,16 +239,17 @@ class ImageDriverTestCase(RasterTestBase):
         shape = (10, 10, 3)
         mem = ImageDriver('MEM')
         with mem.raster('memds', shape, gdal.GDT_Float64) as r:
-            self.assertEqual(r.shape, shape)
+            rshape = r.shape
+        self.assertEqual(rshape, shape)
 
     # TODO: store driver opts as instance attrs?
     def test_create_options(self):
         opts = {'TILED': 'YES', 'COMPRESS': 'DEFLATE'}
         driver = ImageDriver('GTiff')
         imgio = MemFileIO()
-        rast = driver.raster(imgio.name, (10, 10), options=opts)
-        # We cannot verify metadata from an open GDALDataset, it must be
-        # reopened first.
+        rast = driver.raster(imgio, (10, 10))
+        # We cannot verify metadata from a gdal.Dataset in update mode, it must
+        # be reopened as read-only first.
         rast.close()
         with Raster(imgio.name) as rast:
             # The compression name is changed slightly within the GDAL Dataset.
