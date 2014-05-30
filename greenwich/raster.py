@@ -501,10 +501,10 @@ class Raster(object):
         driver -- GDAL driver name as string or ImageDriver
         """
         path = getattr(to, 'name', to)
-        if isinstance(driver, str):
-            driver = ImageDriver(driver)
-        elif isinstance(path, str):
+        if not driver and isinstance(path, str):
             driver = driver_for_path(path)
+        elif isinstance(driver, str):
+            driver = ImageDriver(driver)
         if driver is None:
             raise ValueError('Driver not found for %s' % path)
         r = driver.copy(self, path)

@@ -152,7 +152,8 @@ class RasterTestCase(RasterTestBase):
         self.assertRaises(ValueError, r.save, 'fail.xxx')
         with MemFileIO() as memio:
             r.save(memio, ImageDriver('HFA'))
-        self.assertEqual(memio.read(15), img_header)
+            imgdata = memio.read(15)
+        self.assertEqual(imgdata, img_header)
         r.close()
 
     def test_geom_to_array(self):
