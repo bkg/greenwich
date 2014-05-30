@@ -7,6 +7,7 @@ from osgeo import gdal
 
 
 class MemFileIO(object):
+    """Implement IO interface for GDAL VSI file in memory."""
     _vsimem = '/vsimem'
 
     def __init__(self, basename=None, suffix=None, mode='w+b'):
@@ -20,11 +21,19 @@ class MemFileIO(object):
         self.close()
 
     def __enter__(self):
+        self._check_closed()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
         return True
+
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self.mode)
+
+    def _check_closed(self):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
 
     def close(self):
         if not self.closed:
@@ -34,10 +43,12 @@ class MemFileIO(object):
             self.closed = True
 
     def read(self, n=-1):
-        #_complain_ifclosed(self.closed)
+        self._check_closed()
         if n is None or n < 0:
             fstat = gdal.VSIStatL(self.name)
             n = fstat.size
+        # FIXME: should this use bytes() for py3 compat?
+        # FIXME: Use sizeof instead of hardcoded '1'?
         return gdal.VSIFReadL(1, n, self.vsif) or ''
 
     def readable(self):
@@ -46,13 +57,15 @@ class MemFileIO(object):
         return True
 
     def readinto(self, b):
-        #Read up to len(b) bytes into bytearray b and return the number of bytes read
+        # Read up to len(b) bytes into bytearray b and return the number of
+        # bytes read.
         data = self.read(len(b))
         size = len(data)
         b[:size] = data
         return size
 
     def seek(self, offset, whence=0):
+        self._check_closed()
         gdal.VSIFSeekL(self.vsif, offset, whence)
         #TODO: Return the new absolute position as in IOBase.seek
 
@@ -60,15 +73,18 @@ class MemFileIO(object):
         return True
 
     def tell(self):
+        self._check_closed()
         return gdal.VSIFTellL(self.vsif)
 
     def truncate(self, pos=None):
+        self._check_closed()
         if pos is None:
             pos = self.tell()
         gdal.VSIFTruncateL(self.vsif, pos)
         return pos
 
     def write(self, data):
+        self._check_closed()
         if isinstance(data, bytearray):
             data = bytes(data)
         gdal.VSIFWriteL(data, len(data), 1, self.vsif)
