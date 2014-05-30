@@ -142,12 +142,12 @@ class AffineTransform(object):
 class ImageDriver(object):
     """Wrap gdal.Driver"""
     # GDAL driver default creation options.
-    defaults = {'img': {'COMPRESSED': 'YES'},
-                'nc': {'COMPRESS': 'DEFLATE'},
-                'tif': {'TILED': 'YES', 'COMPRESS': 'PACKBITS'}}
+    defaults = {'img': {'compressed': 'yes'},
+                'nc': {'compress': 'deflate'},
+                'tif': {'tiled': 'yes', 'compress': 'packbits'}}
     registry = available_drivers()
 
-    def __init__(self, driver=None):
+    def __init__(self, driver=None, **options):
         """
         Keyword args:
         driver -- str GDALDriver name like 'GTiff' or GDALDriver instance
@@ -160,7 +160,7 @@ class ImageDriver(object):
         if not isinstance(driver, gdal.Driver):
             raise TypeError('No GDAL driver for %s' % driver)
         self._driver = driver
-        self.options = self.defaults.get(self.ext, {})
+        self.options = options or self.defaults.get(self.ext, {})
 
     def __getattr__(self, attr):
         return getattr(self._driver, attr)
@@ -168,21 +168,19 @@ class ImageDriver(object):
     def __repr__(self):
         return '%s(%r)' % (self.__class__.__name__, self._driver.ShortName)
 
-    def copy(self, source, dest, options=None):
+    def copy(self, source, dest):
         """Returns a copied Raster instance.
 
         Arguments:
         source -- the source Raster instance or filepath as str
         dest -- destination filepath as str
-        Keyword args:
-        options -- dict of dataset creation options
         """
         if not isinstance(source, Raster):
             source = Raster(source)
         if source.name == dest:
             raise ValueError(
                 'Input and output are the same location: %s' % source.name)
-        options = driverdict_tolist(options or self.options)
+        options = driverdict_tolist(self.options)
         ds = self.CreateCopy(dest, source.ds, options=options)
         return Raster(ds)
 
@@ -202,7 +200,7 @@ class ImageDriver(object):
             # File does not even exist
             return True
 
-    def raster(self, path, shape, bandtype=gdal.GDT_Byte, options=None):
+    def raster(self, path, shape, bandtype=gdal.GDT_Byte):
         """Returns a new Raster instance.
 
         gdal.Driver.Create() does not support all formats.
@@ -211,7 +209,6 @@ class ImageDriver(object):
         path -- file object or path as str
         shape -- two or three-tuple of (xsize, ysize, bandcount)
         bandtype -- GDAL pixel data type
-        options -- dict of dataset creation options
         """
         path = getattr(path, 'name', path)
         if len(shape) == 2:
@@ -221,9 +218,8 @@ class ImageDriver(object):
             raise ValueError('Size cannot be negative')
         # Do not write to a non-empty file.
         if not self._is_empty(path):
-            errmsg = '%s already exists, open with Raster()' % path
-            raise IOError(errmsg)
-        ds = self.Create(path, nx, ny, bandcount, bandtype, options=options)
+            raise IOError('%s already exists, open with Raster()' % path)
+        ds = self.Create(path, nx, ny, bandcount, bandtype)
         if not ds:
             raise ValueError(
                 'Could not create %s using %s' % (path, str(self)))

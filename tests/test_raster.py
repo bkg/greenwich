@@ -244,19 +244,25 @@ class ImageDriverTestCase(RasterTestBase):
 
     # TODO: store driver opts as instance attrs?
     def test_create_options(self):
-        opts = {'TILED': 'YES', 'COMPRESS': 'DEFLATE'}
-        driver = ImageDriver('GTiff')
+        opts = {'tiled': 'yes', 'compress': 'deflate'}
+        driver = ImageDriver('GTiff', **opts)
         imgio = MemFileIO()
         rast = driver.raster(imgio, (10, 10))
         # We cannot verify metadata from a gdal.Dataset in update mode, it must
         # be reopened as read-only first.
         rast.close()
         with Raster(imgio.name) as rast:
-            # The compression name is changed slightly within the GDAL Dataset.
-            expected_opt = 'COMPRESSION=DEFLATE'
-            self.assertIn(expected_opt,
-                          rast.ds.GetMetadata_List('IMAGE_STRUCTURE'))
-        imgio.close()
+            imgmeta = rast.GetMetadata_List('IMAGE_STRUCTURE')
+        # The compression name is changed slightly within the GDAL Dataset.
+        expected_opt = 'COMPRESSION=DEFLATE'
+        self.assertIn(expected_opt, imgmeta)
+
+        driver.options.update(compress='packbits')
+        rast = driver.raster(imgio, (10, 10))
+        rast.close()
+        with Raster(imgio.name) as rast:
+            imgmeta = rast.GetMetadata_List('IMAGE_STRUCTURE')
+        self.assertIn('COMPRESSION=PACKBITS', imgmeta)
 
     def test_driver_for_path(self):
         self.assertEqual(driver_for_path('test.jpg').ShortName, 'JPEG')
