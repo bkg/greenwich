@@ -33,8 +33,8 @@ def driver_for_path(path):
     return None
 
 def driverdict_tolist(d):
-    """Returns a GDAL formatted options list from a dict."""
-    return map('='.join, d.items())
+    """Returns a GDAL formatted options list of strings from a dict."""
+    return ['%s=%s' % (k, v) for k, v in d.items()]
 
 def geom_to_array(geom, size, affine):
     """Converts an OGR polygon to a 2D NumPy array.
