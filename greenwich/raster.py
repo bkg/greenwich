@@ -147,16 +147,13 @@ class ImageDriver(object):
                 'tif': {'tiled': 'yes', 'compress': 'packbits'}}
     registry = available_drivers()
 
-    def __init__(self, driver=None, **options):
+    def __init__(self, driver='GTiff', **options):
         """
         Keyword args:
         driver -- str GDALDriver name like 'GTiff' or GDALDriver instance
         """
-        # Use geotiff as the default when path and driver are not provided.
-        if not driver:
-            driver = 'GTiff'
         if isinstance(driver, str):
-            driver = gdal.GetDriverByName(driver)
+            driver = gdal.GetDriverByName(driver) or driver
         if not isinstance(driver, gdal.Driver):
             raise TypeError('No GDAL driver for %s' % driver)
         self._driver = driver
