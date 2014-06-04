@@ -263,9 +263,6 @@ class ImageDriverTestCase(RasterTestBase):
         self.assertIn('COMPRESSION=PACKBITS', imgmeta)
 
     def test_options(self):
-        for driver in ImageDriver.registry:
-            d = ImageDriver(driver)
-            self.assertIsInstance(d.options, dict)
         self.assertGreater(len(self.tiff.options), 0)
         # Inspect available compression options for geotiff.
         self.assertIn('LZW', self.tiff.options['COMPRESS']['choices'])
