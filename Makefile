@@ -4,6 +4,9 @@ PYTHON ?= python
 check:
 	$(PYTHON) setup.py test
 
+check-all:
+	tox
+
 clean:
 	rm -rf build dist *.egg-info
 	find . -iname '*.py[co]' -delete
