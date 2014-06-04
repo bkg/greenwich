@@ -216,6 +216,9 @@ class ImageDriverTestCase(RasterTestBase):
     def setUp(self):
         super(ImageDriverTestCase, self).setUp()
         self.imgdriver = ImageDriver('HFA')
+        # Test driver specific creation settings.
+        opts = {'tiled': 'yes', 'compress': 'deflate'}
+        self.tiff = ImageDriver('GTiff', **opts)
 
     def test_copy(self):
         imgio = MemFileIO()
@@ -242,13 +245,8 @@ class ImageDriverTestCase(RasterTestBase):
         with mem.raster('memds', shape, gdal.GDT_Float64) as r:
             rshape = r.shape
         self.assertEqual(rshape, shape)
-
-    # TODO: store driver opts as instance attrs?
-    def test_create_options(self):
-        opts = {'tiled': 'yes', 'compress': 'deflate'}
-        driver = ImageDriver('GTiff', **opts)
         imgio = MemFileIO()
-        rast = driver.raster(imgio, (10, 10))
+        rast = self.tiff.raster(imgio, (10, 10))
         # We cannot verify metadata from a gdal.Dataset in update mode, it must
         # be reopened as read-only first.
         rast.close()
@@ -257,21 +255,31 @@ class ImageDriverTestCase(RasterTestBase):
         # The compression name is changed slightly within the GDAL Dataset.
         expected_opt = 'COMPRESSION=DEFLATE'
         self.assertIn(expected_opt, imgmeta)
-
-        driver.options.update(compress='packbits')
-        rast = driver.raster(imgio, (10, 10))
+        self.tiff.settings.update(compress='packbits')
+        rast = self.tiff.raster(imgio, (10, 10))
         rast.close()
         with Raster(imgio.name) as rast:
             imgmeta = rast.GetMetadata_List('IMAGE_STRUCTURE')
         self.assertIn('COMPRESSION=PACKBITS', imgmeta)
+
+    def test_options(self):
+        for driver in ImageDriver.registry:
+            d = ImageDriver(driver)
+            self.assertIsInstance(d.options, dict)
+        self.assertGreater(len(self.tiff.options), 0)
+        # Inspect available compression options for geotiff.
+        self.assertIn('LZW', self.tiff.options['COMPRESS']['choices'])
+        # No creation opts should be available for virtual rasters.
+        self.assertEqual(ImageDriver('VRT').options, {})
 
     def test_driver_for_path(self):
         self.assertEqual(driver_for_path('test.jpg').ShortName, 'JPEG')
         self.assertEqual(driver_for_path('test.zzyyxx'), None)
 
     def test_init(self):
-        self.assertEqual(ImageDriver().ShortName, 'GTiff')
-        self.assertEqual(self.imgdriver.ShortName, 'HFA')
+        self.assertRaises(TypeError, ImageDriver, 'zzz')
+        self.assertEqual(self.tiff.format, 'GTiff')
+        self.assertEqual(self.imgdriver.format, 'HFA')
         self.assertEqual(self.imgdriver.ext, 'img')
         hdriver = gdal.GetDriverByName('HFA')
         self.assertEqual(ImageDriver(hdriver)._driver, hdriver)

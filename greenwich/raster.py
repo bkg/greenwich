@@ -1,5 +1,6 @@
 """Raster data handling"""
 import os
+import xml.etree.cElementTree as ET
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -147,17 +148,20 @@ class ImageDriver(object):
                 'tif': {'tiled': 'yes', 'compress': 'packbits'}}
     registry = available_drivers()
 
-    def __init__(self, driver='GTiff', **options):
+    def __init__(self, driver='GTiff', **kwargs):
         """
         Keyword args:
-        driver -- str GDALDriver name like 'GTiff' or GDALDriver instance
+        driver -- str gdal.Driver name like 'GTiff' or gdal.Driver instance
+        kwargs -- GDAL raster creation options
         """
         if isinstance(driver, str):
             driver = gdal.GetDriverByName(driver) or driver
         if not isinstance(driver, gdal.Driver):
             raise TypeError('No GDAL driver for %s' % driver)
         self._driver = driver
-        self.options = options or self.defaults.get(self.ext, {})
+        # The default raster creation options to use.
+        self.settings = kwargs or self.defaults.get(self.ext, {})
+        self._options = None
 
     def __getattr__(self, attr):
         return getattr(self._driver, attr)
@@ -177,8 +181,8 @@ class ImageDriver(object):
         if source.name == dest:
             raise ValueError(
                 'Input and output are the same location: %s' % source.name)
-        options = driverdict_tolist(self.options)
-        ds = self.CreateCopy(dest, source.ds, options=options)
+        settings = driverdict_tolist(self.settings)
+        ds = self.CreateCopy(dest, source.ds, options=settings)
         return Raster(ds)
 
     def Create(self, *args, **kwargs):
@@ -186,8 +190,29 @@ class ImageDriver(object):
         dict, or falls back to driver specific defaults.
         """
         options = kwargs.pop('options', {})
-        kwargs['options'] = driverdict_tolist(options or self.options)
+        kwargs['options'] = driverdict_tolist(options or self.settings)
         return self._driver.Create(*args, **kwargs)
+
+    @property
+    def options(self):
+        """Returns a dict of driver specific raster creation options.
+
+        See GDAL format docs at http://www.gdal.org/formats_list.html
+        """
+        if self._options is None:
+            try:
+                elem = ET.fromstring(
+                    self.info.get('DMD_CREATIONOPTIONLIST', ''))
+            except ET.ParseError:
+                elem = []
+            opts = {}
+            for child in elem:
+                choices = [val.text for val in child]
+                if choices:
+                    child.attrib.update(choices=choices)
+                opts[child.attrib.pop('name')] = child.attrib
+            self._options = opts
+        return self._options
 
     def _is_empty(self, path):
         """Returns True if file is empty or non-existent."""
