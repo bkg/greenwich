@@ -147,6 +147,7 @@ class ImageDriver(object):
                 'nc': {'compress': 'deflate'},
                 'tif': {'tiled': 'yes', 'compress': 'packbits'}}
     registry = available_drivers()
+    _writekey = 'DCAP_CREATE'
 
     def __init__(self, driver='GTiff', **kwargs):
         """
@@ -162,7 +163,7 @@ class ImageDriver(object):
         # The default raster creation options to use.
         self.settings = kwargs or self.defaults.get(self.ext, {})
         self._options = None
-        self.writeable = 'DCAP_CREATE' in self.info
+        self.writeable = self._writekey in self.info
         self.copyable = 'DCAP_CREATECOPY' in self.info
 
     def __getattr__(self, attr):
@@ -202,7 +203,7 @@ class ImageDriver(object):
     @classmethod
     def filter_writeable(cls):
         """Return a dict of drivers supporting raster writes."""
-        return {k: v for k, v in cls.registry.items() if 'DCAP_CREATE' in v}
+        return {k: v for k, v in cls.registry.items() if cls._writekey in v}
 
     @property
     def options(self):
