@@ -20,14 +20,14 @@ def available_drivers():
         drivers[d.ShortName] = d.GetMetadata()
     return drivers
 
-def driver_for_path(path):
+def driver_for_path(path, drivers=None):
     """Returns the gdal.Driver for a path or None based on the file extension.
 
     Arguments:
     path -- file path as str with a GDAL supported file extension
     """
     ext = (os.path.splitext(path)[1][1:] or path).lower()
-    drivers = ImageDriver.registry if ext else {}
+    drivers = drivers or ImageDriver.registry if ext else {}
     for name, meta in drivers.items():
         if ext == meta.get('DMD_EXTENSION', '').lower():
             return ImageDriver(name)
@@ -162,6 +162,8 @@ class ImageDriver(object):
         # The default raster creation options to use.
         self.settings = kwargs or self.defaults.get(self.ext, {})
         self._options = None
+        self.writeable = 'DCAP_CREATE' in self.info
+        self.copyable = 'DCAP_CREATECOPY' in self.info
 
     def __getattr__(self, attr):
         return getattr(self._driver, attr)
@@ -176,6 +178,8 @@ class ImageDriver(object):
         source -- the source Raster instance or filepath as str
         dest -- destination filepath as str
         """
+        if not self.copyable:
+            raise IOError('Driver does not support raster copying')
         if not isinstance(source, Raster):
             source = Raster(source)
         if source.name == dest:
@@ -189,9 +193,16 @@ class ImageDriver(object):
         """Calls Driver.Create() with optionally provided creation options as
         dict, or falls back to driver specific defaults.
         """
+        if not self.writeable:
+            raise IOError('Driver does not support raster creation')
         options = kwargs.pop('options', {})
         kwargs['options'] = driverdict_tolist(options or self.settings)
         return self._driver.Create(*args, **kwargs)
+
+    @classmethod
+    def filter_writeable(cls):
+        """Return a dict of drivers supporting raster writes."""
+        return {k: v for k, v in cls.registry.items() if 'DCAP_CREATE' in v}
 
     @property
     def options(self):
@@ -524,7 +535,7 @@ class Raster(object):
         """
         path = getattr(to, 'name', to)
         if not driver and isinstance(path, str):
-            driver = driver_for_path(path)
+            driver = driver_for_path(path, self.driver.filter_writeable())
         elif isinstance(driver, str):
             driver = ImageDriver(driver)
         if driver is None:
