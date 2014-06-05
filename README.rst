@@ -47,7 +47,7 @@ Retrieve a NumPy array for a specific area by providing the extent as a 4-tuple 
 Reproject the raster to another coordinate system. You may pass EPSG codes, WKT,
 proj4 formatted projections, or a SpatialReference instance as an argument.::
 
-    warped = tmax.warp(3310)
+    warped = tmax.warp(3857)
 
 Perhaps you would like to resample your image to a new resolution which can be
 achieved with::
