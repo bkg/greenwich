@@ -1,8 +1,10 @@
 Greenwich
 =========
 
-|Build Status|_
-|Coverage Status|_
+.. image:: https://travis-ci.org/bkg/greenwich.svg?branch=master
+    :target: https://travis-ci.org/bkg/greenwich
+.. image:: https://coveralls.io/repos/bkg/greenwich/badge.png?branch=master
+    :target: https://coveralls.io/r/bkg/greenwich?branch=master 
 
 Adding Python conveniences to the wonderful world of `GDAL <http://www.gdal.org/>`_.
 
