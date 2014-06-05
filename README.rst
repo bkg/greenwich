@@ -1,6 +1,9 @@
 Greenwich
 =========
 
+|Build Status|_
+|Coverage Status|_
+
 Adding Python conveniences to the wonderful world of `GDAL <http://www.gdal.org/>`_.
 
 Greenwich provides a wrapper for the GDAL SWIG Python bindings. The focus here is on
