@@ -7,8 +7,8 @@ import unittest
 import numpy as np
 from osgeo import gdal, ogr, osr
 
-from greenwich.raster import (ImageDriver, Raster, driver_for_path,
-    geom_to_array, frombytes)
+from greenwich.raster import (ImageDriver, Raster, AffineTransform,
+    driver_for_path, geom_to_array, frombytes)
 from greenwich.io import MemFileIO
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
@@ -30,6 +30,16 @@ def create_gdal_datasource(fname, dtype=np.ubyte):
     datasource.SetGeoTransform(geotransform)
     datasource.FlushCache()
     return datasource
+
+
+class AffineTransformTestCase(unittest.TestCase):
+    def setUp(self):
+        self.affine = AffineTransform(*(-120, 2, 0.0, 38, 0.0, -2))
+
+    def test_transform_to_projected(self):
+        coord = tuple(self.affine.transform_to_projected(((0, 0),)))
+        expected = ((-119.0, 37.0),)
+        self.assertEqual(coord, expected)
 
 
 class RasterTestBase(unittest.TestCase):
@@ -204,11 +214,14 @@ class RasterTestCase(RasterTestBase):
         rf2.close()
 
     def test_init(self):
-        self.assertTrue(self.ds)
-        self.ds.close()
         r = Raster(self.f)
         self.assertIsInstance(r, Raster)
         r.close()
+        self.assertFalse(self.ds.closed)
+        self.assertRaises(IOError, Raster, 'zzz')
+        self.assertRaises(IndexError, self.ds.__getitem__, 3)
+        self.assertTrue(self.ds == self.ds)
+        self.ds.close()
 
 
 class ImageDriverTestCase(RasterTestBase):
@@ -228,6 +241,8 @@ class ImageDriverTestCase(RasterTestBase):
         # Make sure we get the same number of raster bands back.
         self.assertEqual(*map(len, (self.ds, ds_copy)))
         ds_copy.close()
+        # This driver should not support creation or copying.
+        self.assertRaises(IOError, ImageDriver('SDTS').copy, self.ds, imgio)
         imgio.close()
 
     def test_raster(self):
@@ -261,6 +276,8 @@ class ImageDriverTestCase(RasterTestBase):
         with Raster(imgio.name) as rast:
             imgmeta = rast.GetMetadata_List('IMAGE_STRUCTURE')
         self.assertIn('COMPRESSION=PACKBITS', imgmeta)
+        # This driver should not support creation.
+        self.assertRaises(IOError, ImageDriver('PNG').raster, imgio, (128, 112))
 
     def test_options(self):
         self.assertGreater(len(self.tiff.options), 0)
