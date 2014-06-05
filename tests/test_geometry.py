@@ -61,6 +61,8 @@ class GeometryTestCase(unittest.TestCase):
 
         jsondata = json.loads(Geometry(geojson=self.gdict).ExportToJson())
         self.assertEqual(jsondata, self.gdict)
+        jsondata = Geometry(geojson=json.dumps(self.gdict)).ExportToJson()
+        self.assertEqual(json.loads(jsondata), self.gdict)
 
         wkt = 'POLYGON ((0 0,5 0,5 5,0 5,0 0))'
         self.assertEqual(Geometry(wkt=wkt).ExportToWkt(), wkt)

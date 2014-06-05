@@ -18,6 +18,8 @@ class MemFileIOTestCase(unittest.TestCase):
         # VSIMem file should return None after closing.
         self.assertIsNone(gdal.VSIStatL(self.imgio.name))
         self.assertTrue(self.imgio.closed)
+        # Reading a closed file should throw an error.
+        self.assertRaises(ValueError, self.imgio.read)
 
     def test_read(self):
         imgio = MemFileIO()
@@ -48,6 +50,9 @@ class MemFileIOTestCase(unittest.TestCase):
         self.imgio.truncate(2)
         self.imgio.seek(0, 2)
         self.assertEqual(self.imgio.tell(), 2)
+        self.imgio.seek(0)
+        self.imgio.truncate()
+        self.assertEqual(self.imgio.tell(), 0)
 
     def test_write(self):
         f = MemFileIO()
