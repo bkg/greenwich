@@ -310,7 +310,7 @@ class Raster(object):
         dataset = None
 
     def __getattr__(self, attr):
-        """Delegate calls to the GDALDataset."""
+        """Delegate calls to the gdal.Dataset."""
         try:
             return getattr(self.ds, attr)
         except AttributeError:
@@ -322,16 +322,17 @@ class Raster(object):
     def __getitem__(self, i):
         """Returns a single Band instance.
 
-        This is a one-based index which matches the GDAL approach of handling
-        multiband images.
+        This is a zero-based index which matches Python list behavior but
+        differs from the GDAL one-based approach of handling multiband images.
         """
+        i += 1
         band = self.ds.GetRasterBand(i)
         if not band:
             raise IndexError('No band for %s' % i)
         return band
 
     def __iter__(self):
-        for i in self.bandlist:
+        for i in range(len(self)):
             yield self[i]
 
     def __del__(self):
@@ -496,13 +497,13 @@ class Raster(object):
         band rasters for now.
         """
         if self._nodata is None:
-            self._nodata = self[1].GetNoDataValue()
+            self._nodata = self[0].GetNoDataValue()
         return self._nodata
 
     def ReadRaster(self, *args, **kwargs):
         """Returns a string of raster data for partial or full extent.
 
-        Overrides GDALDataset.ReadRaster() with the full raster size by
+        Overrides gdal.Dataset.ReadRaster() with the full raster size by
         default.
         """
         if len(args) < 4:
@@ -588,7 +589,7 @@ class Raster(object):
         if not hasattr(to_sref, 'ExportToWkt'):
             to_sref = SpatialReference(to_sref)
         dest_wkt = to_sref.ExportToWkt()
-        dtype = self[1].DataType
+        dtype = self[0].DataType
         err_thresh = 0.125
         # Determine new values for target raster dimensions and geotransform.
         vrt = gdal.AutoCreateWarpedVRT(self.ds, None, dest_wkt, interpolation,
