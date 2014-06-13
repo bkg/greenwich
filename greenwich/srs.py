@@ -9,7 +9,7 @@ class SpatialReference(osr.SpatialReference):
         super(SpatialReference, self).__init__()
         if isinstance(sref, int):
             self.ImportFromEPSG(sref)
-        elif isinstance(sref, str):
+        elif isinstance(sref, basestring):
             if sref.strip().startswith('+proj='):
                 self.ImportFromProj4(sref)
             else:

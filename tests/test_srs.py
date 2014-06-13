@@ -10,6 +10,8 @@ class SpatialReferenceTestCase(unittest.TestCase):
         sref = SpatialReference(osr.SRS_WKT_WGS84)
         self.assertEqual(sref.wkt, osr.SRS_WKT_WGS84)
         self.assertEqual(str(sref), osr.SRS_WKT_WGS84)
+        wkt = unicode(osr.SRS_WKT_WGS84)
+        self.assertEqual(str(SpatialReference(wkt)), wkt)
 
     def test_epsg(self):
         epsg_id = 3310
