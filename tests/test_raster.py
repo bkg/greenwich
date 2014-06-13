@@ -278,6 +278,19 @@ class ImageDriverTestCase(RasterTestBase):
         self.assertIn('COMPRESSION=PACKBITS', imgmeta)
         # This driver should not support creation.
         self.assertRaises(IOError, ImageDriver('PNG').raster, imgio, (128, 112))
+        # Test compressed netCDF creation
+        opts = {'format': 'nc4c', 'compress': 'deflate', 'zlevel': 6}
+        driver = ImageDriver('netCDF', **opts)
+        # No support for netCDF and VSI, use a tempfile.
+        f = tempfile.NamedTemporaryFile(suffix='.nc')
+        r = driver.raster(f, (10, 8, 3))
+        r.close()
+        r = Raster(f)
+        self.assertTrue(r.size, (10, 8))
+        # GDAL is not reading the compression info back, however "ncdump -hs"
+        # indicates it is indeed present.
+        #self.assertEqual(opts, r.GetMetadata_Dict('IMAGE_STRUCTURE'))
+        r.close()
 
     def test_options(self):
         self.assertGreater(len(self.tiff.options), 0)
