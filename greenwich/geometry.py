@@ -141,6 +141,8 @@ def Geometry(*args, **kwargs):
         geom = ogr.CreateGeometryFromJson(json.dumps(arg))
     elif hasattr(arg, 'startswith') and arg.startswith('{'):
         geom = ogr.CreateGeometryFromJson(arg)
+    elif hasattr(arg, 'wkb'):
+        geom = ogr.CreateGeometryFromWkb(bytes(arg.wkb))
     else:
         geom = ogr.Geometry(*args, **kwargs)
     if srs and geom:

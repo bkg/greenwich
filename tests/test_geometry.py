@@ -1,10 +1,14 @@
-import unittest
+from collections import namedtuple
 import json
+import unittest
 
 from osgeo import ogr
 
 from greenwich.geometry import Envelope, Geometry
 from greenwich.srs import SpatialReference
+
+# Test geometry objects with 'wkb' attr from GeoDjango, Shapely.
+WKBGeom = namedtuple('WKBGeom', ['wkb'])
 
 
 class EnvelopeTestCase(unittest.TestCase):
@@ -68,6 +72,10 @@ class GeometryTestCase(unittest.TestCase):
         self.assertEqual(Geometry(wkt=wkt).ExportToWkt(), wkt)
         self.assertEqual(Geometry(ogr.wkbPolygon).GetGeometryType(),
                          ogr.wkbPolygon)
+        g = ogr.CreateGeometryFromWkt('Point (2 1)')
+        wkb = g.ExportToWkb()
+        wg = WKBGeom(wkb)
+        self.assertEqual(Geometry(wg).ExportToWkb(), wkb)
 
     def test_init_spatialref(self):
         epsg_id = 4326
