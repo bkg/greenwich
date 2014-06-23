@@ -3,7 +3,7 @@ python:
   - 2.7
 
 env:
-  - CFLAGS="-I/usr/include/gdal -I$VIRTUAL_ENV/lib/python2.7/site-packages/numpy/core/include"
+  - CFLAGS=-I/usr/include/gdal
 
 before_install:
   - sudo add-apt-repository -y ppa:ubuntugis/ubuntugis-unstable
