@@ -167,12 +167,16 @@ class RasterTestCase(RasterTestBase):
         r.close()
 
     def test_geom_to_array(self):
-        g = self.geom.Clone()
-        g.TransformTo(self.ds.sref)
-        arr = geom_to_array(g, self.ds.size, self.ds.affine)
-        self.assertEqual(arr.shape, self.ds.shape)
-        self.assertEqual(arr.min(), 0)
-        self.assertEqual(arr.max(), 1)
+        geom = self.geom.Clone()
+        geom.TransformTo(self.ds.sref)
+        # Create a "island" polygon to test interior and exterior rings.
+        poly = geom.Centroid().Buffer(0.5)
+        gdiff = geom.Difference(poly)
+        for g in (geom, gdiff):
+            arr = geom_to_array(g, self.ds.size, self.ds.affine)
+            self.assertEqual(arr.shape, self.ds.shape)
+            self.assertEqual(arr.min(), 0)
+            self.assertEqual(arr.max(), 1)
 
     def test_warp(self):
         epsg_id = 4326

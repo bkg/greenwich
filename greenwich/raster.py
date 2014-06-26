@@ -47,7 +47,9 @@ def geom_to_array(geom, size, affine):
     """
     img = Image.new('L', size, 1)
     draw = ImageDraw.Draw(img)
-    if not geom.GetGeometryName().startswith('MULTI'):
+    # MultiPolygon or Polygon with interior rings don't need another level of
+    # nesting, but non-donut Polygons do.
+    if geom.GetGeometryCount() <= 1:
         geom = [geom]
     for g in geom:
         if g.GetCoordinateDimension() > 2:
