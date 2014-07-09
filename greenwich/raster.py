@@ -72,23 +72,24 @@ def count_unique(arr):
 class AffineTransform(object):
     """Affine transformation between projected and pixel coordinate spaces."""
 
-    def __init__(self, ul_x, scale_x, c0, ul_y, c1, scale_y):
+    def __init__(self, ul_x, scale_x, rx, ul_y, ry, scale_y):
         """Generally this will be initialized from a 5-element tuple in the
         format returned by GetGeoTransform().
 
         Arguments:
         ul_x -- top left corner x coordinate
         scale_x -- x scaling
-        c0 -- coefficient
+        rx -- x rotation
         ul_y -- top left corner y coordinate
-        c1 -- coefficient
+        ry -- y rotation
         scale_y -- y scaling
         """
         # Origin coordinate in projected space.
         self.origin = (ul_x, ul_y)
         self.scale_x = scale_x
         self.scale_y = scale_y
-        self.coeffs = (c0, c1)
+        # Rotation in X and Y directions. (0, 0) is north up.
+        self.rotation = (rx, ry)
 
     def __repr__(self):
         return '<%s %r>' % (self.__class__.__name__, self.tuple)
@@ -136,10 +137,9 @@ class AffineTransform(object):
 
     @property
     def tuple(self):
-        # Assumes north up images.
         start = self.origin
-        c0, c1 = self.coeffs
-        return (start[0], self.scale_x, c0, start[1], c1, self.scale_y)
+        rx, ry = self.rotation
+        return (start[0], self.scale_x, rx, start[1], ry, self.scale_y)
 
 
 class ImageDriver(object):
