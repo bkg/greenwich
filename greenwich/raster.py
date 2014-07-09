@@ -581,35 +581,40 @@ class Raster(object):
             geom.TransformTo(self.sref)
         return geom
 
-    def warp(self, to_sref, interpolation=gdalconst.GRA_NearestNeighbour):
+    def warp(self, to_sref, dest=None, interpolation=gdalconst.GRA_NearestNeighbour):
         """Returns a new reprojected instance.
 
         Arguments:
         to_sref -- spatial reference as a proj4 or wkt string, or a
         SpatialReference
+        Keyword args:
+        dest -- filepath as str
+        interpolation -- GDAL interpolation type
         """
         if not hasattr(to_sref, 'ExportToWkt'):
             to_sref = SpatialReference(to_sref)
         dest_wkt = to_sref.ExportToWkt()
         dtype = self[0].DataType
         err_thresh = 0.125
-        # Determine new values for target raster dimensions and geotransform.
-        vrt = gdal.AutoCreateWarpedVRT(self.ds, None, dest_wkt, interpolation,
-                                       err_thresh)
-        size = (vrt.RasterXSize, vrt.RasterYSize, len(self))
-        dst_gt = vrt.GetGeoTransform()
+        # Determine new values for destination raster dimensions and
+        # geotransform.
+        vrt = gdal.AutoCreateWarpedVRT(self.ds, None, dest_wkt,
+                                       interpolation, err_thresh)
+        warpsize = (vrt.RasterXSize, vrt.RasterYSize, len(self))
+        warptrans = vrt.GetGeoTransform()
         vrt = None
-        imgio = MemFileIO()
-        dest = self.driver.raster(imgio.name, size, dtype)
-        imgio.close()
-        dest.SetGeoTransform(dst_gt)
-        dest.SetProjection(to_sref)
-        for band in dest:
+        imgio = dest or MemFileIO()
+        newrast = self.driver.raster(imgio, warpsize, dtype)
+        if isinstance(imgio, MemFileIO):
+            imgio.close()
+        newrast.SetGeoTransform(warptrans)
+        newrast.SetProjection(to_sref)
+        for band in newrast:
             band.SetNoDataValue(self.nodata)
             band = None
-        # Uses self and dest projection when set to None
-        gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
-        return dest
+        # Uses self and newrast projection when set to None
+        gdal.ReprojectImage(self.ds, newrast.ds, None, None, interpolation)
+        return newrast
 
 
 # Alias the raster constructor as open().

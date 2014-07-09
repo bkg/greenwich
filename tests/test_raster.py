@@ -184,6 +184,11 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(r.sref.srid, epsg_id)
         self.assertNotEqual(r.shape, self.ds.shape)
         self.assertEqual(r.array().shape, r.shape)
+        epsg_id = 3857
+        fp = tempfile.NamedTemporaryFile()
+        r = self.ds.warp(epsg_id, dest=fp.name)
+        self.assertEqual(r.sref.srid, epsg_id)
+        fp.close()
 
     def test_resample(self):
         # Half the original resolution
