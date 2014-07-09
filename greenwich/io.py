@@ -47,8 +47,6 @@ class MemFileIO(object):
         if n is None or n < 0:
             fstat = gdal.VSIStatL(self.name)
             n = fstat.size
-        # FIXME: should this use bytes() for py3 compat?
-        # FIXME: Use sizeof instead of hardcoded '1'?
         return gdal.VSIFReadL(1, n, self.vsif) or ''
 
     def readable(self):
@@ -67,7 +65,6 @@ class MemFileIO(object):
     def seek(self, offset, whence=0):
         self._check_closed()
         gdal.VSIFSeekL(self.vsif, offset, whence)
-        #TODO: Return the new absolute position as in IOBase.seek
 
     def seekable(self):
         return True
