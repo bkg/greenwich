@@ -11,6 +11,17 @@ Adding Python conveniences to the wonderful world of `GDAL <http://www.gdal.org/
 Greenwich provides a wrapper for the GDAL SWIG Python bindings. The focus here is on
 providing some higher level behavior mainly to the raster side of the GDAL/OGR fence.
 
+Installation
+------------
+
+The GDAL Python bindings need a little assistance in finding the pertinent
+headers when building from within a virtualenv. If the usual ``pip install greenwich``
+fails, specify the GDAL header directory wherever that may be for you such as:
+
+.. code-block:: sh
+
+    CFLAGS=-I/usr/include/gdal pip install greenwich
+
 Basic Usage
 -----------
 
