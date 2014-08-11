@@ -284,20 +284,21 @@ class ImageDriver(object):
 class Raster(object):
     """Wrap a GDAL Dataset with additional behavior."""
 
-    def __init__(self, dataset, mode=gdalconst.GA_ReadOnly):
+    def __init__(self, path, mode=gdalconst.GA_ReadOnly):
         """Initialize a Raster data set from a path or file
 
         Arguments:
-        dataset -- path as str or file object
+        path -- path as str, file-like object, or gdal.Dataset
         Keyword args:
         mode -- gdal constant representing access mode
         """
-        # Get the name if we have a file object.
-        dataset = getattr(dataset, 'name', dataset)
-        if not isinstance(dataset, gdal.Dataset):
-            dataset = gdal.Open(dataset, mode)
+        if not isinstance(path, gdal.Dataset):
+            # Get the name if we have a file-like object.
+            dataset = gdal.Open(getattr(path, 'name', path), mode)
+        else:
+            dataset = path
         if dataset is None:
-            raise IOError('Could not open %s' % dataset)
+            raise IOError('No such file or directory: "%s"' % path)
         self.ds = dataset
         self.name = self.ds.GetDescription()
         # Bands are not zero based, available bands are a 1-based list of ints.
