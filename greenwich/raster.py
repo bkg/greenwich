@@ -185,11 +185,16 @@ class ImageDriver(object):
             raise IOError('Driver does not support raster copying')
         if not isinstance(source, Raster):
             source = Raster(source)
+            should_close = True
+        else:
+            should_close = False
         if source.name == dest:
             raise ValueError(
                 'Input and output are the same location: %s' % source.name)
         settings = driverdict_tolist(self.settings)
         ds = self.CreateCopy(dest, source.ds, options=settings)
+        if should_close:
+            source.close()
         return Raster(ds)
 
     def Create(self, *args, **kwargs):

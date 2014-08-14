@@ -254,6 +254,13 @@ class ImageDriverTestCase(RasterTestBase):
         self.assertRaises(IOError, ImageDriver('SDTS').copy, self.ds, imgio)
         imgio.close()
 
+    def test_copy_path(self):
+        self.ds.close()
+        imgio = MemFileIO()
+        ds_copy = ImageDriver('JPEG').copy(self.ds.name, imgio.name)
+        self.assertEqual(ds_copy.driver.ext, 'jpg')
+        ds_copy.close()
+
     def test_raster(self):
         f = tempfile.NamedTemporaryFile(suffix='.img')
         self.assertRaises(ValueError, self.imgdriver.raster, f, (-10, -10))
