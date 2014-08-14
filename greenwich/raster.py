@@ -165,7 +165,7 @@ class ImageDriver(object):
         # The default raster creation options to use.
         self.settings = kwargs or self.defaults.get(self.ext, {})
         self._options = None
-        self.writeable = self._writekey in self.info
+        self.writable = self._writekey in self.info
         self.copyable = 'DCAP_CREATECOPY' in self.info
 
     def __getattr__(self, attr):
@@ -196,14 +196,14 @@ class ImageDriver(object):
         """Calls Driver.Create() with optionally provided creation options as
         dict, or falls back to driver specific defaults.
         """
-        if not self.writeable:
+        if not self.writable:
             raise IOError('Driver does not support raster creation')
         options = kwargs.pop('options', {})
         kwargs['options'] = driverdict_tolist(options or self.settings)
         return self._driver.Create(*args, **kwargs)
 
     @classmethod
-    def filter_writeable(cls):
+    def filter_writable(cls):
         """Return a dict of drivers supporting raster writes."""
         return {k: v for k, v in cls.registry.items() if cls._writekey in v}
 
@@ -540,7 +540,7 @@ class Raster(object):
         """
         path = getattr(to, 'name', to)
         if not driver and isinstance(path, str):
-            driver = driver_for_path(path, self.driver.filter_writeable())
+            driver = driver_for_path(path, self.driver.filter_writable())
         elif isinstance(driver, str):
             driver = ImageDriver(driver)
         if driver is None:
