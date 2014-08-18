@@ -333,10 +333,12 @@ class Raster(object):
         This is a zero-based index which matches Python list behavior but
         differs from the GDAL one-based approach of handling multiband images.
         """
+        if i < 0:
+            i += len(self)
         i += 1
         band = self.ds.GetRasterBand(i)
         if not band:
-            raise IndexError('No band for %s' % i)
+            raise IndexError('No band for "%s"' % i)
         return band
 
     def __iter__(self):

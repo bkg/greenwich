@@ -166,6 +166,13 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(imgdata, img_header)
         r.close()
 
+    def test_slice(self):
+        rast = ImageDriver('MEM').raster('', (3, 3, 5))
+        band = rast.GetRasterBand(5)
+        band.Fill(1)
+        self.assertEqual(rast[-1].Checksum(), band.Checksum())
+        rast.close()
+
     def test_geom_to_array(self):
         geom = self.geom.Clone()
         geom.TransformTo(self.ds.sref)
