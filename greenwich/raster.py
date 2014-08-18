@@ -157,8 +157,8 @@ class ImageDriver(object):
         driver -- str gdal.Driver name like 'GTiff' or gdal.Driver instance
         kwargs -- GDAL raster creation options
         """
-        if isinstance(driver, str):
-            driver = gdal.GetDriverByName(driver) or driver
+        if isinstance(driver, basestring):
+            driver = gdal.GetDriverByName(str(driver)) or driver
         if not isinstance(driver, gdal.Driver):
             raise TypeError('No GDAL driver for %s' % driver)
         self._driver = driver
@@ -546,9 +546,9 @@ class Raster(object):
         driver -- GDAL driver name as string or ImageDriver
         """
         path = getattr(to, 'name', to)
-        if not driver and isinstance(path, str):
+        if not driver and isinstance(path, basestring):
             driver = driver_for_path(path, self.driver.filter_writable())
-        elif isinstance(driver, str):
+        elif isinstance(driver, basestring):
             driver = ImageDriver(driver)
         if driver is None:
             raise ValueError('Driver not found for %s' % path)
