@@ -467,29 +467,26 @@ class Raster(object):
             self._driver = ImageDriver(self.ds.GetDriver())
         return self._driver
 
-    def new(self, pixeldata=None, size=(), affine=None):
+    def new(self, size=(), affine=None):
         """Derive new Raster instances.
 
         Keyword args:
-        pixeldata -- bytestring containing pixel data
         size -- tuple of image size (width, height)
-        affine -- affine transformation tuple
+        affine -- AffineTransform or six-tuple of geotransformation values
         """
         size = size or self.size + (len(self),)
         band = self.ds.GetRasterBand(1)
         imgio = MemFileIO(suffix='.%s' % self.driver.ext)
         rcopy = self.driver.raster(imgio, size, bandtype=band.DataType)
         imgio.close()
-        rcopy.SetProjection(self.GetProjection())
-        rcopy.SetGeoTransform(affine or self.GetGeoTransform())
+        rcopy.sref = self.GetProjection()
+        rcopy.affine = affine or self.GetGeoTransform()
         colors = band.GetColorTable()
         for outband in rcopy:
             if self.nodata is not None:
                 outband.SetNoDataValue(self.nodata)
             if colors:
                 outband.SetColorTable(colors)
-        if pixeldata:
-            rcopy.frombytes(pixeldata)
         return rcopy
 
     def _mask(self, geom):
@@ -512,7 +509,8 @@ class Raster(object):
             pixbuf = bytes(np.getbuffer(m.filled()))
         else:
             pixbuf = self.ds.ReadRaster(*readargs)
-        clone = self.new(pixbuf, dims, affine.tuple)
+        clone = self.new(dims, affine)
+        clone.frombytes(pixbuf)
         return clone
 
     def masked_array(self, envelope=()):
@@ -557,7 +555,7 @@ class Raster(object):
         affine = AffineTransform(*self.GetGeoTransform())
         affine.scale_x *= factors[0]
         affine.scale_y *= factors[1]
-        dest = self.new(size=size, affine=affine.tuple)
+        dest = self.new(size, affine)
         # Uses self and dest projection when set to None
         gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
         return dest
@@ -661,6 +659,13 @@ class Raster(object):
 open = Raster
 
 def frombytes(data, size, bandtype=gdal.GDT_Byte):
+    """Returns an in-memory raster initialized from a pixel buffer.
+
+    Arguments:
+    data -- byte buffer of raw pixel data
+    size -- the raster size
+    bandtype -- band data type
+    """
     r = ImageDriver('MEM').raster('', size, bandtype)
     r.frombytes(data)
     return r

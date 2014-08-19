@@ -134,6 +134,25 @@ class RasterTestCase(RasterTestBase):
         r = frombytes(pixdat, (3, 2, 5), gdal.GDT_Float32)
         self.assertEqual(r.shape, shape)
         self.assertEqual(r.ReadRaster(), pixdat)
+        # Create from bytes.
+        pixdat = bytes(bytearray(range(10)))
+        r2 = self.ds.new((2, 5))
+        r2.frombytes(pixdat)
+        self.assertEqual(r2.ReadRaster(), pixdat)
+        self.assertEqual(r2.size, (2, 5))
+        r2.close()
+        # Create with floating point values.
+        rfloat = ImageDriver('MEM').raster('memds', (10, 10, 3),
+                                           gdal.GDT_Float64)
+        b = bytes(np.random.random((10, 10, 3)).data)
+        rfloat.WriteRaster(0, 0, rfloat.RasterXSize, rfloat.RasterYSize, b)
+        self.assertEqual(rfloat.ReadRaster(), b)
+        b2 = bytes(np.random.random((5, 5, 3)).data)
+        rf2 = rfloat.new((5, 5, 3))
+        rf2.frombytes(b2)
+        self.assertEqual(*map(self.hexdigest, (rf2.ReadRaster(), b2)))
+        rfloat.close()
+        rf2.close()
 
     def test_save(self):
         ext = '.img'
@@ -214,26 +233,10 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(dcopy.nodata, self.ds.nodata)
         self.assertEqual(dcopy.shape, self.ds.shape)
         self.assertNotEqual(dcopy, self.ds)
-        # Create from bytes.
-        pixdat = bytes(bytearray(range(10)))
-        r2 = self.ds.new(pixdat, (2, 5))
-        self.assertEqual(r2.ReadRaster(), pixdat)
-        r2.close()
         # Reduced size withouth pixel data.
         size = tuple([x / 10 for x in self.ds.size])
         dsmall = self.ds.new(size=size)
         self.assertEqual(dsmall.size, size)
-        # Create with floating point values.
-        rfloat = ImageDriver('MEM').raster('memds', (10, 10, 3),
-                                           gdal.GDT_Float64)
-        b = bytes(np.random.random((10, 10, 3)).data)
-        rfloat.WriteRaster(0, 0, rfloat.RasterXSize, rfloat.RasterYSize, b)
-        self.assertEqual(rfloat.ReadRaster(), b)
-        b2 = bytes(np.random.random((5, 5, 3)).data)
-        rf2 = rfloat.new(b2, (5, 5, 3))
-        self.assertEqual(*map(self.hexdigest, (rf2.ReadRaster(), b2)))
-        rfloat.close()
-        rf2.close()
 
     def test_init(self):
         r = Raster(self.f)
@@ -339,3 +342,4 @@ class ImageDriverTestCase(RasterTestBase):
         self.assertEqual(self.imgdriver.ext, 'img')
         hdriver = gdal.GetDriverByName('HFA')
         self.assertEqual(ImageDriver(hdriver)._driver, hdriver)
+        self.assertIsInstance(ImageDriver(u'PNG'), ImageDriver)
