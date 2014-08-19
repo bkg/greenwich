@@ -81,6 +81,12 @@ class RasterTestCase(RasterTestBase):
     def hexdigest(self, s):
         return hashlib.md5(s).hexdigest()
 
+    def test_affine(self):
+        atrans = AffineTransform(41.91, 0.5, 0, 12.54, 0, -0.5)
+        self.ds.affine = atrans
+        self.assertEqual(self.ds.affine, atrans)
+        self.assertEqual(self.ds.GetGeoTransform(), atrans.tuple)
+
     def test_array(self):
         # Reading outside of raster extent is an error.
         self.assertRaises(ValueError, self.ds.array, (-100, 36, -96, 39))

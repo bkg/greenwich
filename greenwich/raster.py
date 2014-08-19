@@ -73,8 +73,8 @@ class AffineTransform(object):
     """Affine transformation between projected and pixel coordinate spaces."""
 
     def __init__(self, ul_x, scale_x, rx, ul_y, ry, scale_y):
-        """Generally this will be initialized from a 5-element tuple in the
-        format returned by GetGeoTransform().
+        """Generally this will be initialized from a six-element tuple in the
+        format returned by gdal.Dataset.GetGeoTransform().
 
         Arguments:
         ul_x -- top left corner x coordinate
@@ -308,8 +308,10 @@ class Raster(object):
         self.name = self.ds.GetDescription()
         # Bands are not zero based, available bands are a 1-based list of ints.
         self.bandlist = range(1, len(self) + 1)
-        self.affine = AffineTransform(*self.GetGeoTransform())
-        self.sref = SpatialReference(dataset.GetProjection())
+        # Initialize attrs without calling their setters.
+        self._affine = AffineTransform(*dataset.GetGeoTransform())
+        self._sref = SpatialReference(dataset.GetProjection())
+        #self.dtype = gdal_array.codes[self[0].DataType]
         self._nodata = None
         self._envelope = None
         self._driver = None
@@ -369,6 +371,24 @@ class Raster(object):
     def __repr__(self):
         status = 'closed' if self.closed else 'open'
         return '<%s: %s %r>' % (self.__class__.__name__, status, self.name)
+
+    def _get_affine(self):
+        return self._affine
+
+    def SetGeoTransform(self, affine):
+        """Sets the affine transformation.
+
+        Intercepts the gdal.Dataset call to ensure use as a property setter.
+
+        Arguments:
+        affine -- AffineTransform or six-tuple of geotransformation values
+        """
+        if isinstance(affine, tuple):
+            affine = AffineTransform(*affine)
+        self._affine = affine
+        self.ds.SetGeoTransform(affine.tuple)
+
+    affine = property(_get_affine, SetGeoTransform)
 
     def array(self, envelope=()):
         """Returns an NDArray, optionally subset by spatial envelope.
@@ -555,16 +575,23 @@ class Raster(object):
         r = driver.copy(self, path)
         r.close()
 
-    def SetProjection(self, to_sref):
-        if not hasattr(to_sref, 'ExportToWkt'):
-            to_sref = SpatialReference(to_sref)
-        self.sref = to_sref
-        self.ds.SetProjection(to_sref.ExportToWkt())
+    def _get_sref(self):
+        return self._sref
 
-    def SetGeoTransform(self, geotrans_tuple):
-        """Sets the affine transformation."""
-        self.affine = AffineTransform(*geotrans_tuple)
-        self.ds.SetGeoTransform(geotrans_tuple)
+    def SetProjection(self, sref):
+        """Sets the spatial reference.
+
+        Intercepts the gdal.Dataset call to ensure use as a property setter.
+
+        Arguments:
+        sref -- SpatialReference or any format supported by the constructor
+        """
+        if not hasattr(sref, 'ExportToWkt'):
+            sref = SpatialReference(sref)
+        self._sref = sref
+        self.ds.SetProjection(sref.ExportToWkt())
+
+    sref = property(_get_sref, SetProjection)
 
     @property
     def shape(self):
