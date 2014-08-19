@@ -15,15 +15,7 @@ class Envelope(object):
     """
 
     def __init__(self, min_x, min_y, max_x, max_y):
-        """
-        Creates an envelope, from lower-left and upper-right coordinates.
-        Coordinate pairs for upper-left and lower-right may also be given, they
-        will be swapped.
-        """
-        # Swap values if they are inverted.
-        if min_x > max_x and min_y > max_y:
-            min_x, max_x = max_x, min_x
-            min_y, max_y = max_y, min_y
+        """Creates an envelope from lower-left and upper-right coordinates."""
         self.min_x = min_x
         self.min_y = min_y
         self.max_x = max_x

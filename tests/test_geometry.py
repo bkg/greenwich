@@ -30,9 +30,6 @@ class EnvelopeTestCase(unittest.TestCase):
         self.assertEqual(self.en, Envelope(*self.en.tuple))
 
     def test_init(self):
-        # Test flipped lower-left and upper-right coordinates.
-        self.assertEqual(Envelope(-120, 38, -110, 45),
-                         Envelope(-110, 45, -120, 38))
         # Zero area envelopes are valid.
         self.assertIsInstance(Envelope(1, 1, 1, 1), Envelope)
 
@@ -54,7 +51,7 @@ class EnvelopeTestCase(unittest.TestCase):
 class GeometryTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.gdict = {'type':'Polygon',
+        self.gdict = {'type': 'Polygon',
                       'coordinates': [[[-123,47],[-123,48],[-122,49],
                                        [-121,48],[-121,47],[-123,47]]]}
 
