@@ -241,20 +241,25 @@ class ImageDriver(object):
             # File does not even exist
             return True
 
-    def raster(self, path, shape, bandtype=gdal.GDT_Byte):
+    def raster(self, path, size, bandtype=gdal.GDT_Byte):
         """Returns a new Raster instance.
 
         gdal.Driver.Create() does not support all formats.
 
         Arguments:
         path -- file object or path as str
-        shape -- two or three-tuple of (xsize, ysize, bandcount)
+        size -- two or three-tuple of (xsize, ysize, bandcount)
         bandtype -- GDAL pixel data type
         """
         path = getattr(path, 'name', path)
-        if len(shape) == 2:
-            shape += (1,)
-        nx, ny, bandcount = shape
+        if len(size) == 2:
+            size += (1,)
+        try:
+            nx, ny, bandcount = size
+        except ValueError as exc:
+            exc.args = (
+                'Must be sequence of length 2 or 3, not %s' % len(size),)
+            raise
         if nx < 0 or ny < 0:
             raise ValueError('Size cannot be negative')
         # Do not write to a non-empty file.
