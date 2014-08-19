@@ -471,9 +471,9 @@ class Raster(object):
         affine -- affine transformation tuple
         """
         size = size or self.size + (len(self),)
-        band = self.GetRasterBand(1)
+        band = self.ds.GetRasterBand(1)
         imgio = MemFileIO(suffix='.%s' % self.driver.ext)
-        rcopy = self.driver.raster(imgio.name, size, bandtype=band.DataType)
+        rcopy = self.driver.raster(imgio, size, bandtype=band.DataType)
         imgio.close()
         rcopy.SetProjection(self.GetProjection())
         rcopy.SetGeoTransform(affine or self.GetGeoTransform())
@@ -504,7 +504,7 @@ class Raster(object):
             #m.set_fill_value(self.nodata)
             if self.nodata is not None:
                 m = np.ma.masked_values(m, self.nodata)
-            pixbuf = str(np.getbuffer(m.filled()))
+            pixbuf = bytes(np.getbuffer(m.filled()))
         else:
             pixbuf = self.ds.ReadRaster(*readargs)
         clone = self.new(pixbuf, dims, affine.tuple)
