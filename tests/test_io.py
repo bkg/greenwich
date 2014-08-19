@@ -55,13 +55,13 @@ class MemFileIOTestCase(unittest.TestCase):
         self.assertEqual(self.imgio.tell(), 0)
 
     def test_write(self):
-        f = MemFileIO()
+        memio = MemFileIO()
         data = 'stuff'
-        f.write(data)
-        f.seek(0)
-        self.assertEqual(f.read(), data)
+        memio.write(data)
+        memio.seek(0)
+        self.assertEqual(memio.read(), data)
         data = bytearray(range(10))
-        f.seek(0)
-        f.write(data)
-        f.seek(0)
-        self.assertEqual(f.read(), bytes(data))
+        memio.seek(0)
+        memio.write(data)
+        memio.seek(0)
+        self.assertEqual(memio.read(), bytes(data))

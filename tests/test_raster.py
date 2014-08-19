@@ -44,16 +44,17 @@ class AffineTransformTestCase(unittest.TestCase):
 
 class RasterTestBase(unittest.TestCase):
     def setUp(self):
-        self.f = tempfile.NamedTemporaryFile(suffix='.tif')
-        self.ds = Raster(create_gdal_datasource(self.f.name))
+        self.fp = tempfile.NamedTemporaryFile(suffix='.tif')
+        self.ds = Raster(create_gdal_datasource(self.fp.name))
 
     def tearDown(self):
         self.ds.close()
-        self.f.close()
+        self.fp.close()
 
 
 class RasterTestCase(RasterTestBase):
     """Test Raster class."""
+    img_header = 'EHFA_HEADER_TAG'
 
     def setUp(self):
         super(RasterTestCase, self).setUp()
@@ -156,24 +157,25 @@ class RasterTestCase(RasterTestBase):
 
     def test_save(self):
         ext = '.img'
-        f = tempfile.NamedTemporaryFile(suffix=ext)
-        self.ds.save(f)
-        b = f.read()
-        self.assertGreater(f.file.tell(), 0)
-        img_header = 'EHFA_HEADER_TAG'
+        fp = tempfile.NamedTemporaryFile(suffix=ext)
+        self.ds.save(fp)
+        b = fp.read()
+        self.assertGreater(fp.file.tell(), 0)
         # Read the image header.
-        self.assertEqual(b[:15], img_header)
-        f.file.seek(0)
+        self.assertEqual(b[:15], self.img_header)
+        fp.file.seek(0)
         # Test with filename as str.
-        self.ds.save(f.name)
-        self.assertEqual(f.read()[:15], img_header)
-        f.close()
+        self.ds.save(fp.name)
+        self.assertEqual(fp.read()[:15], self.img_header)
+        fp.close()
         # Clean up associated files like .aux.xml, etc.
-        paths = glob.glob(f.name.replace(ext, '*'))
+        paths = glob.glob(fp.name.replace(ext, '*'))
         try:
             removed = map(os.unlink, paths)
         except OSError:
             pass
+
+    def test_save_memio(self):
         imgio = MemFileIO(suffix='.img')
         # Test save with MemFileIO object
         self.ds.save(imgio)
@@ -188,7 +190,7 @@ class RasterTestCase(RasterTestBase):
         with MemFileIO() as memio:
             r.save(memio, ImageDriver('HFA'))
             imgdata = memio.read(15)
-        self.assertEqual(imgdata, img_header)
+        self.assertEqual(imgdata, self.img_header)
         r.close()
 
     def test_slice(self):
@@ -239,7 +241,7 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(dsmall.size, size)
 
     def test_init(self):
-        r = Raster(self.f)
+        r = Raster(self.fp)
         self.assertIsInstance(r, Raster)
         r.close()
         self.assertFalse(self.ds.closed)
@@ -278,20 +280,18 @@ class ImageDriverTestCase(RasterTestBase):
         ds_copy.close()
 
     def test_raster(self):
-        f = tempfile.NamedTemporaryFile(suffix='.img')
-        self.assertRaises(ValueError, self.imgdriver.raster, f, (-10, -10))
-        size = (10, 10)
-        rast = self.imgdriver.raster(f, size)
-        self.assertEqual(rast.shape, size)
-        self.assertEqual(rast.driver.ext, 'img')
-        # Cannot create from a non-empty file.
-        self.assertRaises(IOError, self.imgdriver.raster, f.name, size)
-        f.close()
-        shape = (10, 10, 3)
+        size = (8, 10, 3)
         mem = ImageDriver('MEM')
-        with mem.raster('memds', shape, gdal.GDT_Float64) as r:
-            rshape = r.shape
-        self.assertEqual(rshape, shape)
+        with mem.raster('memds', size, gdal.GDT_Float64) as r:
+            rsize = r.size
+            bandcount = len(r)
+        self.assertEqual(rsize, size[:2])
+        self.assertEqual(bandcount, size[-1])
+        # This driver should not support creation.
+        self.assertRaises(IOError, ImageDriver('PNG').raster,
+                          MemFileIO(), (128, 112))
+
+    def test_raster_compression(self):
         imgio = MemFileIO()
         rast = self.tiff.raster(imgio, (10, 10))
         # We cannot verify metadata from a gdal.Dataset in update mode, it must
@@ -308,16 +308,28 @@ class ImageDriverTestCase(RasterTestBase):
         with Raster(imgio.name) as rast:
             imgmeta = rast.GetMetadata_List('IMAGE_STRUCTURE')
         self.assertIn('COMPRESSION=PACKBITS', imgmeta)
-        # This driver should not support creation.
-        self.assertRaises(IOError, ImageDriver('PNG').raster, imgio, (128, 112))
+
+    def test_raster_fromfile(self):
+        fp = tempfile.NamedTemporaryFile(suffix='.img')
+        self.assertRaises(ValueError, self.imgdriver.raster, fp, (-10, -10))
+        size = (7, 11)
+        rast = self.imgdriver.raster(fp, size)
+        self.assertEqual(rast.size, size)
+        self.assertEqual(rast.driver.ext, 'img')
+        rast.close()
+        # Cannot create from a non-empty file.
+        self.assertRaises(IOError, self.imgdriver.raster, fp.name, size)
+        fp.close()
+
+    def test_raster_netcdf(self):
         # Test compressed netCDF creation
         opts = {'format': 'nc4c', 'compress': 'deflate', 'zlevel': 6}
         driver = ImageDriver('netCDF', **opts)
         # No support for netCDF and VSI, use a tempfile.
-        f = tempfile.NamedTemporaryFile(suffix='.nc')
-        r = driver.raster(f, (10, 8, 3))
+        fp = tempfile.NamedTemporaryFile(suffix='.nc')
+        r = driver.raster(fp, (10, 8, 3))
         r.close()
-        r = Raster(f)
+        r = Raster(fp)
         self.assertTrue(r.size, (10, 8))
         # GDAL is not reading the compression info back, however "ncdump -hs"
         # indicates it is indeed present.
