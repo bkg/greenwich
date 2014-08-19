@@ -97,7 +97,7 @@ class Envelope(object):
         """Returns an OGR Geometry for this envelope."""
         ring = ogr.Geometry(ogr.wkbLinearRing)
         for coord in self.ll, self.lr, self.ur, self.ul, self.ll:
-            ring.AddPoint(*coord)
+            ring.AddPoint_2D(*coord)
         polyg = ogr.Geometry(ogr.wkbPolygon)
         polyg.AddGeometryDirectly(ring)
         return polyg
