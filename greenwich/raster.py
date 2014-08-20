@@ -6,6 +6,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from osgeo import gdal, gdalconst
 
+from greenwich.base import Comparable
 from greenwich.io import MemFileIO
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
@@ -69,7 +70,7 @@ def count_unique(arr):
     return [a.tolist() for a in np.histogram(arr, np.unique(arr))]
 
 
-class AffineTransform(object):
+class AffineTransform(Comparable):
     """Affine transformation between projected and pixel coordinate spaces."""
 
     def __init__(self, ul_x, scale_x, rx, ul_y, ry, scale_y):
@@ -90,18 +91,21 @@ class AffineTransform(object):
         self.scale_y = scale_y
         # Rotation in X and Y directions. (0, 0) is north up.
         self.rotation = (rx, ry)
+        # Avoid repeated calls to tuple() by iterators and slices.
+        self._len = len(self.tuple)
+
+    def __getitem__(self, index):
+        return self.tuple[index]
+
+    def __iter__(self):
+        for val in self.tuple:
+            yield val
+
+    def __len__(self):
+        return self._len
 
     def __repr__(self):
         return '<%s %r>' % (self.__class__.__name__, self.tuple)
-
-    def __eq__(self, another):
-        return self.tuple == getattr(another, 'tuple', None)
-
-    def __ne__(self, another):
-        return not self.__eq__(another)
-
-    #def __getitem__(self, idx):
-        #return self.tuple[idx]
 
     def transform_to_projected(self, coords):
         """Convert image pixel/line coordinates to georeferenced x/y, return a
@@ -291,7 +295,7 @@ class ImageDriver(object):
         return self._driver.ShortName
 
 
-class Raster(object):
+class Raster(Comparable):
     """Wrap a GDAL Dataset with additional behavior."""
 
     def __init__(self, path, mode=gdalconst.GA_ReadOnly):
@@ -334,18 +338,18 @@ class Raster(object):
             raise AttributeError(
                 '%s has no attribute "%s"' % (self.__class__.__name__, attr))
 
-    def __getitem__(self, i):
+    def __getitem__(self, index):
         """Returns a single Band instance.
 
         This is a zero-based index which matches Python list behavior but
         differs from the GDAL one-based approach of handling multiband images.
         """
-        if i < 0:
-            i += len(self)
-        i += 1
-        band = self.ds.GetRasterBand(i)
+        if index < 0:
+            index += len(self)
+        index += 1
+        band = self.ds.GetRasterBand(index)
         if not band:
-            raise IndexError('No band for "%s"' % i)
+            raise IndexError('No band for "%s"' % index)
         return band
 
     def __iter__(self):
@@ -364,14 +368,6 @@ class Raster(object):
 
     def __len__(self):
         return self.ds.RasterCount
-
-    def __eq__(self, another):
-        if type(another) is type(self):
-            return self.__dict__ == another.__dict__
-        return False
-
-    def __ne__(self, another):
-        return not self.__eq__(another)
 
     def __repr__(self):
         status = 'closed' if self.closed else 'open'

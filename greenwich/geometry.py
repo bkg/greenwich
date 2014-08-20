@@ -4,10 +4,11 @@ try:
 except ImportError:
     import json
 
+from greenwich.base import Comparable
 from greenwich.srs import SpatialReference
 
 
-class Envelope(object):
+class Envelope(Comparable):
     """Rectangular bounding extent.
 
     This class closely resembles OGREnvelope which is not included in the SWIG
@@ -23,18 +24,21 @@ class Envelope(object):
         if self.min_x > self.max_x or self.min_y > self.max_y:
             raise ValueError('Invalid coordinate extent')
 
-    def __add__(self, i):
-        return Envelope(*[x + i for x in self])
+    def __add__(self, increase):
+        return Envelope(*[val + increase for val in self])
 
     def __contains__(self, envp):
         return self.contains(envp)
 
-    def __eq__(self, another):
-        return self.tuple == getattr(another, 'tuple', False)
+    def __getitem__(self, index):
+        return self.tuple[index]
 
     def __iter__(self):
-        for i in self.tuple:
-            yield i
+        for val in self.tuple:
+            yield val
+
+    def __len__(self):
+        return len(self.__dict__)
 
     def __repr__(self):
         return '<%s: %r>' % (self.__class__.__name__, self.tuple)
