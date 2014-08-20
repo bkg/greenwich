@@ -24,8 +24,10 @@ class Envelope(Comparable):
         if self.min_x > self.max_x or self.min_y > self.max_y:
             raise ValueError('Invalid coordinate extent')
 
-    def __add__(self, increase):
-        return Envelope(*[val + increase for val in self])
+    def __add__(self, envp):
+        combined = Envelope(*tuple(self))
+        combined.expand(envp)
+        return combined
 
     def __contains__(self, envp):
         return self.contains(envp)
@@ -43,8 +45,8 @@ class Envelope(Comparable):
     def __repr__(self):
         return '<%s: %r>' % (self.__class__.__name__, self.tuple)
 
-    def __sub__(self, i):
-        return self.__add__(-i)
+    def __sub__(self, envp):
+        return self.intersect(envp)
 
     def contains(self, envp):
         """Returns true if this envelope contains another.
@@ -58,15 +60,38 @@ class Envelope(Comparable):
             # Perhaps we have a tuple, try again with an Envelope.
             return self.contains(Envelope(*envp))
 
+    def clip(self, envp):
+        mid = len(self) / 2
+        self.ll = map(max, self.ll, envp[:mid])
+        self.ur = map(min, self.ur, envp[mid:])
+
+    def expand(self, envp):
+        """Expands this envelope by the given Envelope or tuple.
+
+        Arguments:
+        envp -- Envelope, two-tuple, or four-tuple
+        """
+        if len(envp) == 2:
+            envp += envp
+        mid = len(self) / 2
+        self.ll = map(min, self.ll, envp[:mid])
+        self.ur = map(max, self.ur, envp[mid:])
+
     @staticmethod
     def from_geom(geom):
         """Returns an Envelope from an OGR Geometry."""
         extent = geom.GetEnvelope()
-        return Envelope(extent[0], extent[2], extent[1], extent[3])
+        return Envelope(*map(extent.__getitem__, (0, 2, 1, 3)))
 
     @property
     def height(self):
         return self.max_y - self.min_y
+
+    def intersect(self, envp):
+        """Returns the intersection of this and another Envelope."""
+        intersection = Envelope(*tuple(self))
+        intersection.clip(envp)
+        return intersection
 
     def intersects(self, envp):
         """Returns true if this envelope intersects another.
@@ -84,10 +109,19 @@ class Envelope(Comparable):
         """Returns the lower left coordinate."""
         return self.min_x, self.min_y
 
+    @ll.setter
+    def ll(self, coord):
+        """Set lower-left from (x, y) tuple."""
+        self.min_x, self.min_y = coord
+
     @property
     def lr(self):
         """Returns the lower right coordinate."""
         return self.max_x, self.min_y
+
+    @lr.setter
+    def lr(self, coord):
+        self.max_x, self.min_y = coord
 
     def scale(self, factor_x, factor_y=None):
         """Returns a new envelope rescaled by the given factor(s)."""
@@ -116,10 +150,19 @@ class Envelope(Comparable):
         """Returns the upper left coordinate."""
         return self.min_x, self.max_y
 
+    @ul.setter
+    def ul(self, coord):
+        self.min_x, self.max_y = coord
+
     @property
     def ur(self):
         """Returns the upper right coordinate."""
         return self.max_x, self.max_y
+
+    @ur.setter
+    def ur(self, coord):
+        """Returns the upper right coordinate."""
+        self.max_x, self.max_y = coord
 
     @property
     def width(self):
