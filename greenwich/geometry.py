@@ -15,17 +15,28 @@ class Envelope(Comparable):
     bindings.
     """
 
-    def __init__(self, min_x, min_y, max_x, max_y):
-        """Creates an envelope from lower-left and upper-right coordinates."""
-        self.min_x = min_x
-        self.min_y = min_y
-        self.max_x = max_x
-        self.max_y = max_y
-        if self.min_x > self.max_x or self.min_y > self.max_y:
-            raise ValueError('Invalid coordinate extent')
+    def __init__(self, *args):
+        """Creates an envelope from lower-left and upper-right coordinates.
+
+        Arguments:
+        args -- min_x, min_y, max_x, max_y or a four-tuple
+        """
+        if len(args) == 1:
+            args = args[0]
+        try:
+            extent = map(float, args)
+        except (TypeError, ValueError) as exc:
+            exc.args = ('Cannot create Envelope from "%s"' % args,)
+            raise
+        try:
+            self.min_x, self.max_x = sorted(extent[::2])
+            self.min_y, self.max_y = sorted(extent[1::2])
+        except ValueError as exc:
+            exc.args = ('Sequence length should be "4", not "%d"' % len(args),)
+            raise
 
     def __add__(self, envp):
-        combined = Envelope(*tuple(self))
+        combined = Envelope(tuple(self))
         combined.expand(envp)
         return combined
 
@@ -58,7 +69,7 @@ class Envelope(Comparable):
             return self.ll <= envp.ll and self.ur >= envp.ur
         except AttributeError:
             # Perhaps we have a tuple, try again with an Envelope.
-            return self.contains(Envelope(*envp))
+            return self.contains(Envelope(envp))
 
     def clip(self, envp):
         mid = len(self) / 2
@@ -81,7 +92,7 @@ class Envelope(Comparable):
     def from_geom(geom):
         """Returns an Envelope from an OGR Geometry."""
         extent = geom.GetEnvelope()
-        return Envelope(*map(extent.__getitem__, (0, 2, 1, 3)))
+        return Envelope(map(extent.__getitem__, (0, 2, 1, 3)))
 
     @property
     def height(self):
@@ -89,7 +100,7 @@ class Envelope(Comparable):
 
     def intersect(self, envp):
         """Returns the intersection of this and another Envelope."""
-        intersection = Envelope(*tuple(self))
+        intersection = Envelope(tuple(self))
         intersection.clip(envp)
         return intersection
 
@@ -102,7 +113,7 @@ class Envelope(Comparable):
         try:
             return self.ll <= envp.ur and self.ur >= envp.ll
         except AttributeError:
-            return self.intersects(Envelope(*envp))
+            return self.intersects(Envelope(envp))
 
     @property
     def ll(self):

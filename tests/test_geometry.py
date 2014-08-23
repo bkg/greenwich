@@ -21,10 +21,7 @@ class EnvelopeTestCase(unittest.TestCase):
     def test_contains(self):
         self.assertIn(self.esub, self.en)
         self.assertFalse(self.en.contains((0, 0, 0, 0)))
-        self.assertRaises(TypeError, self.en.contains, ())
-        self.assertRaises(TypeError, self.en.contains, 'something')
-        # FIXME: this should probably throw a TypeError
-        self.assertFalse(self.en.contains('four'))
+        self.assertRaises(ValueError, self.en.contains, ())
 
     def test_subtract(self):
         shrink = Envelope(0, 0, 100, 100) - Envelope(-50, -50, 50, 50)
@@ -47,6 +44,9 @@ class EnvelopeTestCase(unittest.TestCase):
         self.assertEqual(tuple(e), (-120, 0, 0, 40))
 
     def test_init(self):
+        # Test flipped lower-left and upper-right coordinates.
+        self.assertEqual(Envelope(-120, 38, -110, 45),
+                         Envelope(-110, 45, -120, 38))
         # Zero area envelopes are valid.
         self.assertIsInstance(Envelope(1, 1, 1, 1), Envelope)
 
@@ -57,12 +57,11 @@ class EnvelopeTestCase(unittest.TestCase):
         self.assertTrue(self.en.intersects(overlapping))
         outside = Envelope(0, 0, 5, 5)
         self.assertFalse(self.en.intersects(outside))
-        self.assertRaises(TypeError, self.en.intersects, ())
+        self.assertRaises(ValueError, self.en.intersects, ())
 
     def test_invalid(self):
-        with self.assertRaises(ValueError):
-            Envelope(80, 2, 1, 2)
-            Envelope(2, 1, 1, 2)
+        self.assertRaises(ValueError, Envelope, 'something')
+        self.assertRaises(TypeError, Envelope, None)
 
 
 class GeometryTestCase(unittest.TestCase):
