@@ -180,6 +180,13 @@ class Envelope(Comparable):
         return self.max_x - self.min_x
 
 
+@property
+def __geo_interface__(self):
+    return json.loads(self.ExportToJson())
+
+# Monkey-patch ogr.Geometry to provide geo-interface support.
+ogr.Geometry.__geo_interface__ = __geo_interface__
+
 def Geometry(*args, **kwargs):
     """Returns an ogr.Geometry instance optionally created from a geojson str
     or dict. The spatial reference may also be provided.
