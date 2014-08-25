@@ -386,7 +386,7 @@ class Raster(Comparable):
         if isinstance(affine, tuple):
             affine = AffineTransform(*affine)
         self._affine = affine
-        self.ds.SetGeoTransform(affine.tuple)
+        self.ds.SetGeoTransform(affine)
 
     affine = property(_get_affine, SetGeoTransform)
 
@@ -446,7 +446,7 @@ class Raster(Comparable):
         envelope -- coordinate extent tuple or Envelope
         """
         if isinstance(envelope, tuple):
-            envelope = Envelope(*envelope)
+            envelope = Envelope(envelope)
         if not (self.envelope.contains(envelope) or
                 self.envelope.intersects(envelope)):
             raise ValueError('Envelope does not intersect with this extent')
@@ -475,7 +475,7 @@ class Raster(Comparable):
         rcopy = self.driver.raster(imgio, size, bandtype=band.DataType)
         imgio.close()
         rcopy.sref = self.GetProjection()
-        rcopy.affine = affine or self.GetGeoTransform()
+        rcopy.affine = affine or tuple(self.affine)
         colors = band.GetColorTable()
         for outband in rcopy:
             if self.nodata is not None:
@@ -489,7 +489,7 @@ class Raster(Comparable):
         env = Envelope.from_geom(geom)
         readargs = self.get_offset(env)
         dims = readargs[2:4]
-        affine = AffineTransform(*self.GetGeoTransform())
+        affine = AffineTransform(*tuple(self.affine))
         # Update origin coordinate for the new affine transformation.
         affine.origin = env.ul
         # Without a simple envelope, this becomes a masking operation rather
