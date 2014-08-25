@@ -70,14 +70,11 @@ class GeometryTestCase(unittest.TestCase):
         self.gdict = {'type': 'Polygon',
                       'coordinates': [[[-123,47],[-123,48],[-122,49],
                                        [-121,48],[-121,47],[-123,47]]]}
-        #self.geom = Geometry(self.gdict)
         self.geom = Geometry(self.gdict, srs=4326)
 
     def test_geo_interface(self):
         #for coord in self.gdict['coordinates']:
         g = self.gdict['coordinates'][0]
-        #import ipdb; ipdb.set_trace()
-        self.gdict['coordinates'] = (tuple(map(tuple, g)),)
         self.assertEqual(self.geom.__geo_interface__, self.gdict)
         point = {'type': 'Point', 'coordinates': (2, 4)}
         g = Geometry(point)
