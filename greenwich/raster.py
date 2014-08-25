@@ -133,10 +133,10 @@ class AffineTransform(Comparable):
         such as ((-120, 38), (-121, 39))
         """
         # Use local vars for better performance here.
-        origin = self.origin
+        origin_x, origin_y = self.origin
         sx = self.scale_x
         sy = self.scale_y
-        return [(int((x - origin[0]) / sx), int((y - origin[1]) / sy))
+        return [(int((x - origin_x) / sx), int((y - origin_y) / sy))
                 for x, y in coords]
 
     @property
