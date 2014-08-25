@@ -73,12 +73,11 @@ class GeometryTestCase(unittest.TestCase):
         self.geom = Geometry(self.gdict, srs=4326)
 
     def test_geo_interface(self):
-        #for coord in self.gdict['coordinates']:
         g = self.gdict['coordinates'][0]
         self.assertEqual(self.geom.__geo_interface__, self.gdict)
-        point = {'type': 'Point', 'coordinates': (2, 4)}
+        point = {'type': 'Point', 'coordinates': [2.0, 4.0]}
         g = Geometry(point)
-        #self.assertEqual(g.__geo_interface__, point)
+        self.assertEqual(g.__geo_interface__, point)
 
     def test_init(self):
         jsondata = self.geom.ExportToJson()
