@@ -419,8 +419,11 @@ class Raster(Comparable):
         """Returns a new raster instance cropped to a bounding box.
 
         Arguments:
-        bbox -- bounding box as an OGR Polygon
+        bbox -- bounding box as an OGR Polygon, Envelope, or tuple
         """
+        if isinstance(bbox, tuple):
+            bbox = Envelope(bbox).to_geom()
+            bbox.AssignSpatialReference(self.sref)
         return self._mask(bbox)
 
     @property

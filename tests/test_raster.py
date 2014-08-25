@@ -99,13 +99,16 @@ class RasterTestCase(RasterTestBase):
         cropped = self.ds.crop(self.bbox)
         self.assertIsInstance(cropped, Raster)
         self.assertEqual(len(cropped), len(self.ds))
-        self.assertLess(cropped.RasterXSize, self.ds.RasterXSize)
-        self.assertLess(cropped.RasterYSize, self.ds.RasterYSize)
+        self.assertLess(cropped.size, self.ds.size)
         # Should return the same pixel buffer regardless of the geometry
         # coordinate system.
         px_a = self.hexdigest(self.ds.crop(self.bbox_4326).ReadRaster())
         px_b = self.hexdigest(cropped.ReadRaster())
         self.assertEqual(px_a, px_b)
+        r = self.ds.crop(tuple(Envelope.from_geom(self.bbox)))
+        csum = r[0].Checksum()
+        r.close()
+        self.assertEqual(csum, cropped[0].Checksum())
 
     def test_clip(self):
         """Test clipping a raster with a geometry."""
