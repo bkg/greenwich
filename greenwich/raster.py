@@ -87,8 +87,7 @@ class AffineTransform(Comparable):
         """
         # Origin coordinate in projected space.
         self.origin = (ul_x, ul_y)
-        self.scale_x = scale_x
-        self.scale_y = scale_y
+        self.scale = (scale_x, scale_y)
         # Rotation in X and Y directions. (0, 0) is north up.
         self.rotation = (rx, ry)
         # Avoid repeated calls to tuple() by iterators and slices.
@@ -134,8 +133,7 @@ class AffineTransform(Comparable):
         """
         # Use local vars for better performance here.
         origin_x, origin_y = self.origin
-        sx = self.scale_x
-        sy = self.scale_y
+        sx, sy = self.scale
         return [(int((x - origin_x) / sx), int((y - origin_y) / sy))
                 for x, y in coords]
 
@@ -143,7 +141,8 @@ class AffineTransform(Comparable):
     def tuple(self):
         start = self.origin
         rx, ry = self.rotation
-        return (start[0], self.scale_x, rx, start[1], ry, self.scale_y)
+        sx, sy = self.scale
+        return (start[0], sx, rx, start[1], ry, sy)
 
 
 class ImageDriver(object):
@@ -431,8 +430,8 @@ class Raster(Comparable):
         """
         if self._envelope is None:
             origin = self.affine.origin
-            ur_x = origin[0] + self.ds.RasterXSize * self.affine.scale_x
-            ll_y = origin[1] + self.ds.RasterYSize * self.affine.scale_y
+            ur_x = origin[0] + self.ds.RasterXSize * self.affine.scale[0]
+            ll_y = origin[1] + self.ds.RasterYSize * self.affine.scale[1]
             self._envelope = Envelope(origin[0], ll_y, ur_x, origin[1])
         return self._envelope
 
@@ -548,9 +547,9 @@ class Raster(Comparable):
         # Find the scaling factor for pixel size.
         factors = (size[0] / float(self.RasterXSize),
                    size[1] / float(self.RasterYSize))
-        affine = AffineTransform(*self.GetGeoTransform())
-        affine.scale_x *= factors[0]
-        affine.scale_y *= factors[1]
+        affine = AffineTransform(*tuple(self.affine))
+        affine.scale = (affine.scale[0] * factors[0],
+                        affine.scale[1] * factors[1])
         dest = self.new(size, affine)
         # Uses self and dest projection when set to None
         gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
