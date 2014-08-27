@@ -154,7 +154,7 @@ class ImageDriver(object):
     registry = available_drivers()
     _writekey = 'DCAP_CREATE'
 
-    def __init__(self, driver='GTiff', **kwargs):
+    def __init__(self, driver='GTiff', strictmode=True, **kwargs):
         """
         Keyword args:
         driver -- str gdal.Driver name like 'GTiff' or gdal.Driver instance
@@ -167,6 +167,7 @@ class ImageDriver(object):
         self._driver = driver
         # The default raster creation options to use.
         self.settings = kwargs or self.defaults.get(self.ext, {})
+        self.strictmode = strictmode
         self._options = None
         self.writable = self._writekey in self.info
         self.copyable = 'DCAP_CREATECOPY' in self.info
@@ -195,7 +196,8 @@ class ImageDriver(object):
             raise ValueError(
                 'Input and output are the same location: %s' % source.name)
         settings = driverdict_tolist(self.settings)
-        ds = self.CreateCopy(dest, source.ds, options=settings)
+        ds = self.CreateCopy(dest, source.ds, self.strictmode,
+                             options=settings)
         if should_close:
             source.close()
         return Raster(ds)
