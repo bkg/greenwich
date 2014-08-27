@@ -422,7 +422,7 @@ class Raster(Comparable):
         bbox -- bounding box as an OGR Polygon, Envelope, or tuple
         """
         if isinstance(bbox, tuple):
-            bbox = Envelope(bbox).to_geom()
+            bbox = Envelope(bbox).polygon
             bbox.AssignSpatialReference(self.sref)
         return self._mask(bbox)
 
@@ -497,7 +497,7 @@ class Raster(Comparable):
         affine.origin = env.ul
         # Without a simple envelope, this becomes a masking operation rather
         # than a crop.
-        if not geom.Equals(env.to_geom()):
+        if not geom.Equals(env.polygon):
             arr = self.ds.ReadAsArray(*readargs)
             mask_arr = geom_to_array(geom, dims, affine)
             m = np.ma.masked_array(arr, mask=mask_arr)
@@ -607,7 +607,7 @@ class Raster(Comparable):
 
     def _transform_maskgeom(self, geom):
         if isinstance(geom, Envelope):
-            geom = geom.to_geom()
+            geom = geom.polygon
         geom_sref = geom.GetSpatialReference()
         if geom_sref is None:
             raise Exception('Cannot transform from unknown spatial reference')

@@ -60,7 +60,7 @@ class RasterTestCase(RasterTestBase):
         super(RasterTestCase, self).setUp()
         # Shrink envelope
         envelope = self.ds.envelope.scale(0.8)
-        self.bbox = envelope.to_geom()
+        self.bbox = envelope.polygon
         sref = SpatialReference(3857)
         self.bbox.AssignSpatialReference(sref)
         # Bounding box in WGS84 lat/lng

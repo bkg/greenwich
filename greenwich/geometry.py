@@ -142,7 +142,8 @@ class Envelope(Comparable):
         return Envelope(self.min_x + w, self.min_y + h,
                         self.max_x - w, self.max_y - h)
 
-    def to_geom(self):
+    @property
+    def polygon(self):
         """Returns an OGR Geometry for this envelope."""
         ring = ogr.Geometry(ogr.wkbLinearRing)
         for coord in self.ll, self.lr, self.ur, self.ul, self.ll:
