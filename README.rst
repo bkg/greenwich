@@ -30,8 +30,7 @@ Open any raster data set you have lying around, perhaps some climate data from
 
 .. code-block:: python
 
-    from greenwich.raster import Raster
-    from greenwich.geometry import Geometry
+    from greenwich import Geometry, Raster
     from greenwich.io import MemFileIO
 
     with Raster('cc85tn701.tif') as tmax:
