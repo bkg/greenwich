@@ -1,5 +1,22 @@
 """Spatial reference systems"""
+import math
 from osgeo import osr
+
+def transform_tile(xtile, ytile, zoom):
+    """Returns a tuple of (latitude, longitude) from a map tile xyz coordinate.
+
+    See http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Lon..2Flat._to_tile_numbers_2
+
+    Arguments:
+    xtile - x tile location as int
+    ytile - y tile location as int
+    zoom - zoom level as int
+    """
+    n = 2.0 ** zoom
+    lat_rad = math.atan(math.sinh(math.pi * (1 - 2 * ytile / n)))
+    x = xtile / n * 360.0 - 180.0
+    y = math.degrees(lat_rad)
+    return x, y
 
 
 class SpatialReference(osr.SpatialReference):

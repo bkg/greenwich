@@ -1,11 +1,10 @@
 import unittest
 from osgeo import osr
 
-from greenwich.srs import SpatialReference
+from greenwich.srs import SpatialReference, transform_tile
 
 
 class SpatialReferenceTestCase(unittest.TestCase):
-
     def test_wkt(self):
         sref = SpatialReference(osr.SRS_WKT_WGS84)
         self.assertEqual(sref.wkt, osr.SRS_WKT_WGS84)
@@ -32,3 +31,9 @@ class SpatialReferenceTestCase(unittest.TestCase):
     def test_equality(self):
         self.assertEqual(SpatialReference(3857), SpatialReference(3857))
         self.assertNotEqual(SpatialReference(4326), SpatialReference(3857))
+
+
+class TransformTileTestCase(unittest.TestCase):
+    def test_transform(self):
+        self.assertEqual(transform_tile(553, 346, 10),
+                         (14.4140625, 50.28933925329178))
