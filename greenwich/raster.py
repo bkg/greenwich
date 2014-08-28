@@ -152,6 +152,7 @@ class ImageDriver(object):
                 'nc': {'compress': 'deflate'},
                 'tif': {'tiled': 'yes', 'compress': 'packbits'}}
     registry = available_drivers()
+    _copykey = 'DCAP_CREATECOPY'
     _writekey = 'DCAP_CREATE'
 
     def __init__(self, driver='GTiff', strictmode=True, **kwargs):
@@ -170,7 +171,7 @@ class ImageDriver(object):
         self.strictmode = strictmode
         self._options = None
         self.writable = self._writekey in self.info
-        self.copyable = 'DCAP_CREATECOPY' in self.info
+        self.copyable = self._copykey in self.info
 
     def __getattr__(self, attr):
         return getattr(self._driver, attr)
@@ -213,9 +214,18 @@ class ImageDriver(object):
         return self._driver.Create(*args, **kwargs)
 
     @classmethod
+    def _filter_by(cls, key):
+        return {k: v for k, v in cls.registry.items() if key in v}
+
+    @classmethod
     def filter_writable(cls):
         """Return a dict of drivers supporting raster writes."""
-        return {k: v for k, v in cls.registry.items() if cls._writekey in v}
+        return cls._filter_by(cls._writekey)
+
+    @classmethod
+    def filter_copyable(cls):
+        """Return a dict of drivers supporting raster copies."""
+        return cls._filter_by(cls._copykey)
 
     @property
     def options(self):
@@ -307,7 +317,7 @@ class Raster(Comparable):
         Keyword args:
         mode -- gdal constant representing access mode
         """
-        if not isinstance(path, gdal.Dataset):
+        if path and not isinstance(path, gdal.Dataset):
             # Get the name if we have a file-like object.
             dataset = gdal.Open(getattr(path, 'name', path), mode)
         else:
@@ -570,13 +580,12 @@ class Raster(Comparable):
         """
         path = getattr(to, 'name', to)
         if not driver and isinstance(path, basestring):
-            driver = driver_for_path(path, self.driver.filter_writable())
+            driver = driver_for_path(path, self.driver.filter_copyable())
         elif isinstance(driver, basestring):
             driver = ImageDriver(driver)
-        if driver is None:
-            raise ValueError('Driver not found for %s' % path)
-        r = driver.copy(self, path)
-        r.close()
+        if driver is None or not driver.copyable:
+            raise ValueError('Copy supporting driver not found for %s' % path)
+        driver.copy(self, path).close()
 
     def _get_sref(self):
         return self._sref
