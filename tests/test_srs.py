@@ -17,6 +17,10 @@ class SpatialReferenceTestCase(unittest.TestCase):
         from_epsg = SpatialReference(epsg_id)
         self.assertEqual(from_epsg.srid, epsg_id)
 
+    def test_epsg_strings(self):
+        self.assertEqual(SpatialReference('EPSG:4269').srid, 4269)
+        self.assertEqual(SpatialReference('4269').srid, 4269)
+
     def test_proj4(self):
         p4 = SpatialReference(2805).ExportToProj4()
         from_proj4 = SpatialReference(p4)

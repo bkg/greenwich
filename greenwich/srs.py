@@ -24,15 +24,22 @@ class SpatialReference(osr.SpatialReference):
 
     def __init__(self, sref=None):
         super(SpatialReference, self).__init__()
-        if isinstance(sref, int):
+        try:
+            sref = sref.split(':')[-1]
+        except AttributeError:
+            pass
+        try:
+            sref = int(sref)
+        except (TypeError, ValueError):
+            if isinstance(sref, basestring):
+                if sref.strip().startswith('+proj='):
+                    self.ImportFromProj4(sref)
+                else:
+                    self.ImportFromWkt(sref)
+                # Add EPSG authority if applicable
+                self.AutoIdentifyEPSG()
+        else:
             self.ImportFromEPSG(sref)
-        elif isinstance(sref, basestring):
-            if sref.strip().startswith('+proj='):
-                self.ImportFromProj4(sref)
-            else:
-                self.ImportFromWkt(sref)
-            # Add EPSG authority if applicable
-            self.AutoIdentifyEPSG()
 
     def __eq__(self, another):
         return bool(self.IsSame(another))
