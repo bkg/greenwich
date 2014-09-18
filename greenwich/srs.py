@@ -25,21 +25,25 @@ class SpatialReference(osr.SpatialReference):
     def __init__(self, sref=None):
         super(SpatialReference, self).__init__()
         try:
-            sref = sref.split(':')[-1]
+            sref = sref.strip()
+            part = sref.split(':')[-1]
         except AttributeError:
-            pass
+            part = sref
         try:
-            sref = int(sref)
-        except (TypeError, ValueError):
-            if isinstance(sref, basestring):
-                if sref.strip().startswith('+proj='):
-                    self.ImportFromProj4(sref)
-                else:
-                    self.ImportFromWkt(sref)
-                # Add EPSG authority if applicable
-                self.AutoIdentifyEPSG()
+            epsg = int(part)
+        except ValueError:
+            if sref.startswith('+proj='):
+                self.ImportFromProj4(sref)
+            elif sref.startswith('urn:ogc:def:crs'):
+                self.SetWellKnownGeogCS(part)
+            else:
+                self.ImportFromWkt(sref)
+            # Add EPSG authority if applicable
+            self.AutoIdentifyEPSG()
+        except TypeError:
+            pass
         else:
-            self.ImportFromEPSG(sref)
+            self.ImportFromEPSG(epsg)
 
     def __eq__(self, another):
         return bool(self.IsSame(another))
