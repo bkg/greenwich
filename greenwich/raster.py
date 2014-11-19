@@ -8,7 +8,7 @@ from osgeo import gdal, gdalconst
 
 from greenwich.base import Comparable
 from greenwich.io import MemFileIO
-from greenwich.geometry import Envelope
+from greenwich.geometry import Envelope, Geometry
 from greenwich.srs import SpatialReference
 
 def available_drivers():
@@ -619,7 +619,10 @@ class Raster(Comparable):
     def _transform_maskgeom(self, geom):
         if isinstance(geom, Envelope):
             geom = geom.polygon
-        geom_sref = geom.GetSpatialReference()
+        try:
+            geom_sref = geom.GetSpatialReference()
+        except AttributeError:
+            return self._transform_maskgeom(Geometry(geom))
         if geom_sref is None:
             raise Exception('Cannot transform from unknown spatial reference')
         # Reproject geom if necessary

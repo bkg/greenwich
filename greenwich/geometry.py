@@ -192,9 +192,12 @@ def Geometry(*args, **kwargs):
     """Returns an ogr.Geometry instance optionally created from a geojson str
     or dict. The spatial reference may also be provided.
     """
-    srs = kwargs.pop('srs', None)
     # Look for geojson as a positional or keyword arg.
     arg = kwargs.pop('geojson', None) or len(args) and args[0]
+    try:
+        srs = kwargs.pop('srs', None) or arg.srs.wkt
+    except AttributeError:
+        srs = None
     if hasattr(arg, 'keys'):
         geom = ogr.CreateGeometryFromJson(json.dumps(arg))
     elif hasattr(arg, 'startswith') and arg.startswith('{'):
