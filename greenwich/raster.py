@@ -267,20 +267,18 @@ class ImageDriver(object):
         bandtype -- GDAL pixel data type
         """
         path = getattr(path, 'name', path)
-        if len(size) == 2:
-            size += (1,)
         try:
-            nx, ny, bandcount = size
-        except ValueError as exc:
-            exc.args = (
-                'Must be sequence of length 2 or 3, not %s' % len(size),)
+            is_multiband = len(size) > 2
+            nx, ny, nbands = size if is_multiband else size + (1,)
+        except (TypeError, ValueError) as exc:
+            exc.args = ('Size must be 2 or 3-item sequence',)
             raise
         if nx < 0 or ny < 0:
             raise ValueError('Size cannot be negative')
         # Do not write to a non-empty file.
         if not self._is_empty(path):
             raise IOError('%s already exists, open with Raster()' % path)
-        ds = self.Create(path, nx, ny, bandcount, bandtype)
+        ds = self.Create(path, nx, ny, nbands, bandtype)
         if not ds:
             raise ValueError(
                 'Could not create %s using %s' % (path, str(self)))
@@ -487,7 +485,7 @@ class Raster(Comparable):
         size = size or self.size + (len(self),)
         band = self.ds.GetRasterBand(1)
         imgio = MemFileIO(suffix='.%s' % self.driver.ext)
-        rcopy = self.driver.raster(imgio, size, bandtype=band.DataType)
+        rcopy = self.driver.raster(imgio, size, band.DataType)
         imgio.close()
         rcopy.sref = self.GetProjection()
         rcopy.affine = affine or tuple(self.affine)
