@@ -147,13 +147,13 @@ class AffineTransform(Comparable):
 
 class ImageDriver(object):
     """Wrap gdal.Driver"""
+    _copykey = 'DCAP_CREATECOPY'
+    _writekey = 'DCAP_CREATE'
     # GDAL driver default creation options.
     defaults = {'img': {'compressed': 'yes'},
                 'nc': {'compress': 'deflate'},
                 'tif': {'tiled': 'yes', 'compress': 'packbits'}}
     registry = available_drivers()
-    _copykey = 'DCAP_CREATECOPY'
-    _writekey = 'DCAP_CREATE'
 
     def __init__(self, driver='GTiff', strictmode=True, **kwargs):
         """
