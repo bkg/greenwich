@@ -259,6 +259,7 @@ class ImageDriverTestCase(RasterTestBase):
     def setUp(self):
         super(ImageDriverTestCase, self).setUp()
         self.imgdriver = ImageDriver('HFA')
+        self.memdriver = ImageDriver('MEM')
         # Test driver specific creation settings.
         opts = {'tiled': 'yes', 'compress': 'deflate'}
         self.tiff = ImageDriver('GTiff', **opts)
@@ -284,8 +285,7 @@ class ImageDriverTestCase(RasterTestBase):
 
     def test_raster(self):
         size = (8, 10, 3)
-        mem = ImageDriver('MEM')
-        with mem.raster('memds', size, gdal.GDT_Float64) as r:
+        with self.memdriver.raster('memds', size, gdal.GDT_Float64) as r:
             rsize = r.size
             bandcount = len(r)
         self.assertEqual(rsize, size[:2])
@@ -314,7 +314,6 @@ class ImageDriverTestCase(RasterTestBase):
 
     def test_raster_fromfile(self):
         fp = tempfile.NamedTemporaryFile(suffix='.img')
-        self.assertRaises(ValueError, self.imgdriver.raster, fp, (-10, -10))
         size = (7, 11)
         rast = self.imgdriver.raster(fp, size)
         self.assertEqual(rast.size, size)
@@ -338,6 +337,11 @@ class ImageDriverTestCase(RasterTestBase):
         # indicates it is indeed present.
         #self.assertEqual(opts, r.GetMetadata_Dict('IMAGE_STRUCTURE'))
         r.close()
+
+    def test_raster_size_args(self):
+        self.assertRaises(TypeError, self.memdriver.raster, '', 10)
+        self.assertRaises(ValueError, self.memdriver.raster, '', (-10, -10))
+        self.assertRaises(ValueError, self.memdriver.raster, '', (2, 2, 3, 1))
 
     def test_options(self):
         self.assertGreater(len(self.tiff.options), 0)
