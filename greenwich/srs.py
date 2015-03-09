@@ -8,13 +8,19 @@ def transform_tile(xtile, ytile, zoom):
     See http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Lon..2Flat._to_tile_numbers_2
 
     Arguments:
-    xtile - x tile location as int
-    ytile - y tile location as int
-    zoom - zoom level as int
+    xtile - x tile location as int or float
+    ytile - y tile location as int or float
+    zoom - zoom level as int or float
     """
     n = 2.0 ** zoom
-    lat_rad = math.atan(math.sinh(math.pi * (1 - 2 * ytile / n)))
     x = xtile / n * 360.0 - 180.0
+    # Caculate latitude in radians and convert to degrees constrained from -90
+    # to 90. Values too big for tile coordinate pairs are invalid and could
+    # overflow.
+    try:
+        lat_rad = math.atan(math.sinh(math.pi * (1 - 2 * ytile / n)))
+    except OverflowError:
+        raise ValueError('Invalid tile coordinate for zoom level %d' % zoom)
     y = math.degrees(lat_rad)
     return x, y
 
