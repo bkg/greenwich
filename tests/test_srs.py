@@ -44,8 +44,8 @@ class SpatialReferenceTestCase(unittest.TestCase):
 
 class TransformTileTestCase(unittest.TestCase):
     def test_transform(self):
-        self.assertEqual(transform_tile(553, 346, 10),
-                         (14.4140625, 50.28933925329178))
+        self.assertAlmostEqual(transform_tile(553, 346, 10),
+                               (14.4140625, 50.28933925329178))
 
     def test_invalid_tile(self):
         self.assertRaises(ValueError, transform_tile, 1000, 1000, 3)
