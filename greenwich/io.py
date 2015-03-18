@@ -19,23 +19,21 @@ def vsiprefix(path):
     scheme = VSI_SCHEMES.get(urlparse(vpath).scheme, '')
     for ext in VSI_TYPES:
         if ext in vpath:
-            filetype = VSI_TYPES[ext]
+            filesys = VSI_TYPES[ext]
             break
     else:
-        filetype = ''
-    if filetype and scheme:
-        filetype = filetype[:-1]
-    return ''.join((filetype, scheme, path))
+        filesys = ''
+    if filesys and scheme:
+        filesys = filesys[:-1]
+    return ''.join((filesys, scheme, path))
 
 
-class MemFileIO(object):
-    """Implement IO interface for GDAL VSI file in memory."""
-    _vsimem = '/vsimem'
+class VSIFile(object):
+    """Implement IO interface for GDAL VSI file."""
 
-    def __init__(self, basename=None, suffix=None, mode='w+b'):
-        basename = (basename or str(uuid.uuid4())) + (suffix or '')
-        self.name = os.path.join(self._vsimem, basename)
-        self.vsif = gdal.VSIFOpenL(self.name, mode)
+    def __init__(self, name, mode='rb'):
+        self._vsif = gdal.VSIFOpenL(name, mode)
+        self.name = name
         self.mode = mode
         self.closed = not self.readable()
 
@@ -59,9 +57,7 @@ class MemFileIO(object):
 
     def close(self):
         if not self.closed:
-            gdal.VSIFCloseL(self.vsif)
-            # Free allocated memory.
-            gdal.Unlink(self.name)
+            gdal.VSIFCloseL(self._vsif)
             self.closed = True
 
     def read(self, n=-1):
@@ -69,10 +65,10 @@ class MemFileIO(object):
         if n is None or n < 0:
             fstat = gdal.VSIStatL(self.name)
             n = fstat.size
-        return gdal.VSIFReadL(1, n, self.vsif) or ''
+        return gdal.VSIFReadL(1, n, self._vsif) or ''
 
     def readable(self):
-        if self.vsif is None:
+        if self._vsif is None:
             raise IOError('Could not read from %s' % self.name)
         return True
 
@@ -86,27 +82,44 @@ class MemFileIO(object):
 
     def seek(self, offset, whence=0):
         self._check_closed()
-        gdal.VSIFSeekL(self.vsif, offset, whence)
+        gdal.VSIFSeekL(self._vsif, offset, whence)
 
     def seekable(self):
         return True
 
     def tell(self):
         self._check_closed()
-        return gdal.VSIFTellL(self.vsif)
+        return gdal.VSIFTellL(self._vsif)
 
     def truncate(self, pos=None):
         self._check_closed()
         if pos is None:
             pos = self.tell()
-        gdal.VSIFTruncateL(self.vsif, pos)
+        gdal.VSIFTruncateL(self._vsif, pos)
         return pos
 
     def write(self, data):
         self._check_closed()
         if isinstance(data, bytearray):
             data = bytes(data)
-        gdal.VSIFWriteL(data, len(data), 1, self.vsif)
+        gdal.VSIFWriteL(data, len(data), 1, self._vsif)
 
     def writable(self):
         return True
+
+
+class MemFileIO(VSIFile):
+    """Implement IO interface for GDAL VSI file in memory."""
+    _vpath = '/vsimem'
+
+    def __init__(self, basename=None, suffix=None, mode='w+b'):
+        basename = (basename or str(uuid.uuid4())) + (suffix or '')
+        name = os.path.join(self._vpath, basename)
+        super(MemFileIO, self).__init__(name, mode)
+
+    def close(self):
+        if not self.closed:
+            gdal.VSIFCloseL(self._vsif)
+            # Free allocated memory.
+            gdal.Unlink(self.name)
+            self.closed = True

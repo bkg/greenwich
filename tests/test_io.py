@@ -1,9 +1,11 @@
+import os
+import tempfile
 import unittest
 
 from osgeo import gdal
 
 from .test_raster import RasterTestBase
-from greenwich.io import MemFileIO, vsiprefix
+from greenwich.io import MemFileIO, VSIFile, vsiprefix
 
 
 class MemFileIOTestCase(unittest.TestCase):
@@ -15,7 +17,7 @@ class MemFileIOTestCase(unittest.TestCase):
 
     def test_close(self):
         self.imgio.close()
-        # VSIMem file should return None after closing.
+        # VSIMem file should return None after closing as mem is freed.
         self.assertIsNone(gdal.VSIStatL(self.imgio.name))
         self.assertTrue(self.imgio.closed)
         # Reading a closed file should throw an error.
@@ -23,6 +25,7 @@ class MemFileIOTestCase(unittest.TestCase):
 
     def test_read(self):
         imgio = MemFileIO()
+        self.assertFalse(os.path.exists(imgio.name))
         self.assertTrue(imgio.readable())
         # Empty file should return an empty string.
         self.assertEqual(imgio.read(), '')
@@ -68,6 +71,21 @@ class MemFileIOTestCase(unittest.TestCase):
 
 
 class VSIFileTestCase(unittest.TestCase):
+    def test_close(self):
+        fd, name = tempfile.mkstemp()
+        try:
+            vsif = VSIFile(name)
+            vsif.close()
+            self.assertTrue(vsif.closed)
+            # VSIFile never unlinks on close, unlike MemFileIO which needs to
+            # free up allocated memory.
+            self.assertTrue(os.path.isfile(name))
+        finally:
+            os.unlink(name)
+
+    def test_read_missing(self):
+        self.assertRaises(IOError, VSIFile, 'missing.zyx', 'rb')
+
     def test_vsiprefix(self):
         self.assertEqual(vsiprefix('test.jpg'), 'test.jpg')
         self.assertEqual(vsiprefix('/home/user/test.zip'),
