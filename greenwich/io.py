@@ -1,9 +1,31 @@
 """GDAL IO handling"""
 from __future__ import absolute_import
 import os
+from urlparse import urlparse
 import uuid
 
 from osgeo import gdal
+
+VSI_SCHEMES = {'http': '/vsicurl/'}
+VSI_TYPES = {'.zip': '/vsizip/', '.gz': '/vsigzip/', '.tgz': '/vsitar/'}
+
+def vsiprefix(path):
+    """Returns a GDAL virtual filesystem prefixed path.
+
+    Arguments:
+    path -- file path as str
+    """
+    vpath = path.lower()
+    scheme = VSI_SCHEMES.get(urlparse(vpath).scheme, '')
+    for ext in VSI_TYPES:
+        if ext in vpath:
+            filetype = VSI_TYPES[ext]
+            break
+    else:
+        filetype = ''
+    if filetype and scheme:
+        filetype = filetype[:-1]
+    return ''.join((filetype, scheme, path))
 
 
 class MemFileIO(object):

@@ -3,7 +3,7 @@ import unittest
 from osgeo import gdal
 
 from .test_raster import RasterTestBase
-from greenwich.io import MemFileIO
+from greenwich.io import MemFileIO, vsiprefix
 
 
 class MemFileIOTestCase(unittest.TestCase):
@@ -65,3 +65,14 @@ class MemFileIOTestCase(unittest.TestCase):
         memio.write(data)
         memio.seek(0)
         self.assertEqual(memio.read(), bytes(data))
+
+
+class VSIFileTestCase(unittest.TestCase):
+    def test_vsiprefix(self):
+        self.assertEqual(vsiprefix('test.jpg'), 'test.jpg')
+        self.assertEqual(vsiprefix('/home/user/test.zip'),
+                         '/vsizip//home/user/test.zip')
+        self.assertEqual(vsiprefix('http://osgeo.org/data/spif83.ecw'),
+                         '/vsicurl/http://osgeo.org/data/spif83.ecw')
+        self.assertEqual(vsiprefix('http://osgeo.org/data/a.zip/a.tif'),
+                         '/vsizip/vsicurl/http://osgeo.org/data/a.zip/a.tif')
