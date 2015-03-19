@@ -102,7 +102,7 @@ class VSIFile(object):
         self._check_closed()
         if isinstance(data, bytearray):
             data = bytes(data)
-        gdal.VSIFWriteL(data, len(data), 1, self._vsif)
+        gdal.VSIFWriteL(data, 1, len(data), self._vsif)
 
     def writable(self):
         return True
