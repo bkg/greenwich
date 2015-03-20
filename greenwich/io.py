@@ -32,10 +32,13 @@ class VSIFile(object):
     """Implement IO interface for GDAL VSI file."""
 
     def __init__(self, name, mode='rb'):
-        self._vsif = gdal.VSIFOpenL(name, mode)
         self.name = name
         self.mode = mode
-        self.closed = not self.readable()
+        self.closed = False
+        self._vsif = gdal.VSIFOpenL(name, mode)
+        if self._vsif is None:
+            self.closed = True
+            raise IOError('Could not open "%s"' % self.name)
 
     def __del__(self):
         self.close()
@@ -49,7 +52,9 @@ class VSIFile(object):
         return True
 
     def __repr__(self):
-        return '<%s %s>' % (self.__class__.__name__, self.mode)
+        status = 'closed' if self.closed else 'open'
+        repstr = '<%s: %s %r, mode "%s">'
+        return repstr % (self.__class__.__name__, status, self.name, self.mode)
 
     def _check_closed(self):
         if self.closed:
@@ -68,9 +73,7 @@ class VSIFile(object):
         return gdal.VSIFReadL(1, n, self._vsif) or ''
 
     def readable(self):
-        if self._vsif is None:
-            raise IOError('Could not read from %s' % self.name)
-        return True
+        return set(self.mode) & {'r', '+'} and not self.closed
 
     def readinto(self, b):
         # Read up to len(b) bytes into bytearray b and return the number of
@@ -102,10 +105,12 @@ class VSIFile(object):
         self._check_closed()
         if isinstance(data, bytearray):
             data = bytes(data)
-        gdal.VSIFWriteL(data, 1, len(data), self._vsif)
+        count = len(data)
+        if gdal.VSIFWriteL(data, 1, count, self._vsif) != count:
+            raise IOError('Failed writing to "%s"' % self.name)
 
     def writable(self):
-        return True
+        return set(self.mode) & {'w', '+'} and not self.closed
 
 
 class MemFileIO(VSIFile):
@@ -123,3 +128,7 @@ class MemFileIO(VSIFile):
             # Free allocated memory.
             gdal.Unlink(self.name)
             self.closed = True
+
+    def readable(self):
+        # Opened mem files are always readable regardless of mode.
+        return not self.closed

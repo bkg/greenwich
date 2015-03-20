@@ -89,6 +89,20 @@ class VSIFileTestCase(unittest.TestCase):
     def test_read_missing(self):
         self.assertRaises(IOError, VSIFile, 'missing.zyx', 'rb')
 
+    def test_write_error(self):
+        fname = '/vsimem/a.tif'
+        data = '0123'
+        with VSIFile(fname, 'w+b') as vsif:
+            self.assertTrue(vsif.writable())
+            vsif.write(data)
+        vsifr = VSIFile(fname, 'rb')
+        self.assertEqual(vsifr.read(), data)
+        try:
+            self.assertRaises(IOError, vsifr.write, '0123')
+        finally:
+            vsifr.close()
+            gdal.Unlink(fname)
+
     def test_vsiprefix(self):
         self.assertEqual(vsiprefix('test.jpg'), 'test.jpg')
         self.assertEqual(vsiprefix('/home/user/test.zip'),
