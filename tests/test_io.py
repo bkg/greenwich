@@ -13,7 +13,7 @@ class MemFileIOTestCase(unittest.TestCase):
         self.imgio = MemFileIO()
         vsif = gdal.VSIFOpenL(self.imgio.name, 'wb')
         self.data = '0123'
-        gdal.VSIFWriteL(self.data, len(self.data), 1, vsif)
+        gdal.VSIFWriteL(self.data, 1, len(self.data), vsif)
 
     def test_close(self):
         self.imgio.close()
@@ -59,7 +59,7 @@ class MemFileIOTestCase(unittest.TestCase):
 
     def test_write(self):
         memio = MemFileIO()
-        data = 'stuff'
+        data = '56789'
         memio.write(data)
         memio.seek(0)
         self.assertEqual(memio.read(), data)
@@ -68,6 +68,9 @@ class MemFileIOTestCase(unittest.TestCase):
         memio.write(data)
         memio.seek(0)
         self.assertEqual(memio.read(), bytes(data))
+
+    def tearDown(self):
+        self.imgio.close()
 
 
 class VSIFileTestCase(unittest.TestCase):
