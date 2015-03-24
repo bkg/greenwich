@@ -256,6 +256,7 @@ class RasterTestCase(RasterTestBase):
         r.close()
         self.assertFalse(self.ds.closed)
         self.assertRaises(IOError, Raster, 'zzz')
+        self.assertRaises(IOError, Raster, None)
         self.assertRaises(IndexError, self.ds.__getitem__, 3)
         self.assertTrue(self.ds == self.ds)
         self.ds.close()
@@ -298,6 +299,9 @@ class ImageDriverTestCase(RasterTestBase):
         ds_copy = ImageDriver('JPEG').copy(self.ds.name, imgio.name)
         self.assertEqual(ds_copy.driver.ext, 'jpg')
         ds_copy.close()
+
+    def test_filter_writable(self):
+        self.assertIsInstance(ImageDriver.filter_writable()['GTiff'], dict)
 
     def test_raster(self):
         size = (8, 10, 3)
@@ -373,6 +377,7 @@ class ImageDriverTestCase(RasterTestBase):
     def test_init(self):
         self.assertRaises(TypeError, ImageDriver, 'zzz')
         self.assertEqual(self.tiff.format, 'GTiff')
+        self.assertEqual(self.tiff.mimetype, 'image/tiff')
         self.assertEqual(self.imgdriver.format, 'HFA')
         self.assertEqual(self.imgdriver.ext, 'img')
         hdriver = gdal.GetDriverByName('HFA')
