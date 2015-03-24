@@ -45,12 +45,18 @@ class AffineTransformTestCase(unittest.TestCase):
 
 class RasterTestBase(unittest.TestCase):
     def setUp(self):
-        self.fp = tempfile.NamedTemporaryFile(suffix='.tif')
         self.ds = Raster(create_gdal_datasource(self.fp.name))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.fp = tempfile.NamedTemporaryFile(suffix='.tif')
 
     def tearDown(self):
         self.ds.close()
-        self.fp.close()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.fp.close()
 
 
 class RasterTestCase(RasterTestBase):
