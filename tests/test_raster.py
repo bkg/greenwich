@@ -1,6 +1,7 @@
 import os
 import glob
 import hashlib
+from io import BytesIO
 import tempfile
 import unittest
 
@@ -8,8 +9,8 @@ import numpy as np
 from osgeo import gdal, ogr, osr
 
 from greenwich.raster import (ImageDriver, Raster, AffineTransform,
-    driver_for_path, geom_to_array, frombytes)
-from greenwich.io import MemFileIO
+    driver_for_path, geom_to_array, frombytes, open as ropen)
+from greenwich.io import MemFileIO, VSIFile
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
 
@@ -252,6 +253,15 @@ class RasterTestCase(RasterTestBase):
         self.assertRaises(IndexError, self.ds.__getitem__, 3)
         self.assertTrue(self.ds == self.ds)
         self.ds.close()
+
+    def test_open(self):
+        bio = BytesIO(self.fp.read())
+        with ropen(bio) as r:
+            self.assertIsInstance(r, Raster)
+            with VSIFile(r.name) as vsif:
+                imgdata = vsif.read()
+        self.assertEqual(imgdata, bio.getvalue())
+        self.assertIsInstance(ropen(self.fp), Raster)
 
 
 class ImageDriverTestCase(RasterTestBase):

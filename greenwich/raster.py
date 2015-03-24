@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw
 from osgeo import gdal, gdalconst
 
 from greenwich.base import Comparable
-from greenwich.io import MemFileIO
+from greenwich.io import MemFileIO, vsiprefix
 from greenwich.geometry import Envelope, Geometry
 from greenwich.srs import SpatialReference
 
@@ -311,7 +311,7 @@ class Raster(Comparable):
         """Initialize a Raster data set from a path or file
 
         Arguments:
-        path -- path as str, file-like object, or gdal.Dataset
+        path -- path as str, file object, or gdal.Dataset
         Keyword args:
         mode -- gdal constant representing access mode
         """
@@ -665,8 +665,26 @@ class Raster(Comparable):
         return newrast
 
 
-# Alias the raster constructor as open().
-open = Raster
+def open(path, mode=gdalconst.GA_ReadOnly):
+    """Returns a Raster instance.
+
+    Arguments:
+    path -- local or remote path as str or file-like object
+    Keyword args:
+    mode -- gdal constant representing access mode
+    """
+    path = getattr(path, 'name', path)
+    try:
+        return Raster(vsiprefix(path), mode)
+    except AttributeError:
+        try:
+            imgdata = path.read()
+        except AttributeError:
+            raise TypeError('Not a file-like object providing read()')
+        imgio = MemFileIO(delete=False)
+        gdal.FileFromMemBuffer(imgio.name, imgdata)
+        return Raster(imgio, mode)
+    raise ValueError('Cannot open raster from "%r"' % path)
 
 def frombytes(data, size, bandtype=gdal.GDT_Byte):
     """Returns an in-memory raster initialized from a pixel buffer.
