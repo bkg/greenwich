@@ -62,8 +62,8 @@ class VSIFile(object):
 
     def close(self):
         if not self.closed:
-            gdal.VSIFCloseL(self._vsif)
             self.closed = True
+            gdal.VSIFCloseL(self._vsif)
 
     def read(self, n=-1):
         self._check_closed()
@@ -117,17 +117,19 @@ class MemFileIO(VSIFile):
     """Implement IO interface for GDAL VSI file in memory."""
     _vpath = '/vsimem'
 
-    def __init__(self, basename=None, suffix=None, mode='w+b'):
+    def __init__(self, basename=None, suffix=None, mode='w+b', delete=True):
         basename = (basename or str(uuid.uuid4())) + (suffix or '')
         name = os.path.join(self._vpath, basename)
         super(MemFileIO, self).__init__(name, mode)
+        self.delete = delete
 
     def close(self):
         if not self.closed:
+            self.closed = True
             gdal.VSIFCloseL(self._vsif)
             # Free allocated memory.
-            gdal.Unlink(self.name)
-            self.closed = True
+            if self.delete:
+                gdal.Unlink(self.name)
 
     def readable(self):
         # Opened mem files are always readable regardless of mode.
