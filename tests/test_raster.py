@@ -262,13 +262,19 @@ class RasterTestCase(RasterTestBase):
         self.ds.close()
 
     def test_open(self):
+        self.assertIsInstance(ropen(self.fp), Raster)
+        self.assertRaises(TypeError, ropen, 123)
+        self.assertRaises(TypeError, ropen, ('zyx',))
+        self.assertRaises(IOError, ropen, '')
+
+    def test_open_bytesio(self):
         bio = BytesIO(self.fp.read())
         with ropen(bio) as r:
             self.assertIsInstance(r, Raster)
             with VSIFile(r.name) as vsif:
                 imgdata = vsif.read()
         self.assertEqual(imgdata, bio.getvalue())
-        self.assertIsInstance(ropen(self.fp), Raster)
+        self.assertRaises(IOError, ropen, BytesIO('0123'))
 
 
 class ImageDriverTestCase(RasterTestBase):

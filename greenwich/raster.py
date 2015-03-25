@@ -320,8 +320,8 @@ class Raster(Comparable):
             dataset = gdal.Open(getattr(path, 'name', path), mode)
         else:
             dataset = path
-        if dataset is None:
-            raise IOError('No such file or directory: "%s"' % path)
+        if not dataset:
+            raise IOError('Failed to open: "%s"' % path)
         self.ds = dataset
         self.name = self.ds.GetDescription()
         # Bands are not zero based, available bands are a 1-based list of ints.
@@ -681,10 +681,11 @@ def open(path, mode=gdalconst.GA_ReadOnly):
             imgdata = path.read()
         except AttributeError:
             raise TypeError('Not a file-like object providing read()')
-        imgio = MemFileIO(delete=False)
-        gdal.FileFromMemBuffer(imgio.name, imgdata)
-        return Raster(imgio, mode)
-    raise ValueError('Cannot open raster from "%r"' % path)
+        else:
+            imgio = MemFileIO(delete=False)
+            gdal.FileFromMemBuffer(imgio.name, imgdata)
+            return Raster(imgio, mode)
+    raise ValueError('Failed to open raster from "%r"' % path)
 
 def frombytes(data, size, bandtype=gdal.GDT_Byte):
     """Returns an in-memory raster initialized from a pixel buffer.
