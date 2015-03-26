@@ -41,7 +41,12 @@ class VSIFile(object):
             raise IOError('Could not open "%s"' % self.name)
 
     def __del__(self):
-        self.close()
+        # Modules may be unloaded at program exit prior to this method
+        # call, so silence these errors.
+        try:
+            self.close()
+        except AttributeError:
+            pass
 
     def __enter__(self):
         self._check_closed()
