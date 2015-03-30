@@ -78,6 +78,7 @@ class VSIFileTestCase(unittest.TestCase):
         fd, name = tempfile.mkstemp()
         try:
             vsif = VSIFile(name)
+            self.assertTrue(vsif.readable())
             vsif.close()
             self.assertTrue(vsif.closed)
             # VSIFile never unlinks on close, unlike MemFileIO which needs to
