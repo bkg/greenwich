@@ -119,7 +119,9 @@ class VSIFile(object):
 
 
 class MemFileIO(VSIFile):
-    """Implement IO interface for GDAL VSI file in memory."""
+    """Implement IO interface for GDAL VSI file in memory which will be freed
+    on close by default.
+    """
     _vpath = '/vsimem'
 
     def __init__(self, basename=None, suffix=None, mode='w+b', delete=True):
