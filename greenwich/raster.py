@@ -66,7 +66,7 @@ def count_unique(arr):
     Arguments:
     arr -- numpy ndarray
     """
-    return np.asarray(np.unique(arr, return_counts=True)).T
+    return zip(*np.unique(arr, return_counts=True))
 
 
 class AffineTransform(Comparable):

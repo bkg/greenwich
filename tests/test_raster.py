@@ -9,7 +9,7 @@ import numpy as np
 from osgeo import gdal, ogr, osr
 
 from greenwich.raster import (ImageDriver, Raster, AffineTransform,
-    driver_for_path, geom_to_array, frombytes, open as ropen)
+    count_unique, driver_for_path, geom_to_array, frombytes, open as ropen)
 from greenwich.io import MemFileIO, VSIFile
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
@@ -221,6 +221,10 @@ class RasterTestCase(RasterTestBase):
             self.assertEqual(arr.shape, self.ds.shape)
             self.assertEqual(arr.min(), 0)
             self.assertEqual(arr.max(), 1)
+
+    def test_count_unique(self):
+        a = np.array([(0, 1), (0, 2)])
+        self.assertEqual(count_unique(a), [(0, 2), (1, 1), (2, 1)])
 
     def test_warp(self):
         epsg_id = 4326
