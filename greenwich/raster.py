@@ -61,13 +61,12 @@ def geom_to_array(geom, size, affine):
     return np.asarray(img)
 
 def count_unique(arr):
-    """Returns a two-tuple of pixel count and bin value for every unique pixel
-    value in the array.
+    """Returns a list of two-tuples with unique value and occurrence count.
 
     Arguments:
     arr -- numpy ndarray
     """
-    return [a.tolist() for a in np.histogram(arr, np.unique(arr))]
+    return np.asarray(np.unique(arr, return_counts=True)).T
 
 
 class AffineTransform(Comparable):
