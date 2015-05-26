@@ -68,6 +68,27 @@ def count_unique(arr):
     """
     return zip(*np.unique(arr, return_counts=True))
 
+def transform_mask(geom, to_sref):
+    """Returns a transformed mask as a Geometry.
+
+    Arguments:
+    geom -- any coercible Geometry value or Envelope
+    to_sref -- SpatialReference
+    """
+    if isinstance(geom, Envelope):
+        geom = geom.polygon
+    try:
+        geom_sref = geom.GetSpatialReference()
+    except AttributeError:
+        return transform_mask(Geometry(geom))
+    if geom_sref is None:
+        raise Exception('Cannot transform from unknown spatial reference')
+    # Reproject geom if necessary
+    if not geom_sref.IsSame(to_sref):
+        geom = geom.Clone()
+        geom.TransformTo(to_sref)
+    return geom
+
 
 class AffineTransform(Comparable):
     """Affine transformation between projected and pixel coordinate spaces."""
@@ -497,7 +518,7 @@ class Raster(Comparable):
         return rcopy
 
     def _mask(self, geom):
-        geom = self._transform_maskgeom(geom)
+        geom = transform_mask(geom, self.sref)
         env = Envelope.from_geom(geom)
         readargs = self.get_offset(env)
         dims = readargs[2:4]
@@ -612,21 +633,6 @@ class Raster(Comparable):
     def size(self):
         """Returns a 2-tuple of (width, height) in pixels."""
         return (self.ds.RasterXSize, self.ds.RasterYSize)
-
-    def _transform_maskgeom(self, geom):
-        if isinstance(geom, Envelope):
-            geom = geom.polygon
-        try:
-            geom_sref = geom.GetSpatialReference()
-        except AttributeError:
-            return self._transform_maskgeom(Geometry(geom))
-        if geom_sref is None:
-            raise Exception('Cannot transform from unknown spatial reference')
-        # Reproject geom if necessary
-        if not geom_sref.IsSame(self.sref):
-            geom = geom.Clone()
-            geom.TransformTo(self.sref)
-        return geom
 
     def warp(self, to_sref, dest=None, interpolation=gdalconst.GRA_NearestNeighbour):
         """Returns a new reprojected instance.
