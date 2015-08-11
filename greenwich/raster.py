@@ -533,7 +533,7 @@ class Raster(Comparable):
             m = np.ma.masked_array(arr, mask=mask_arr)
             #m.set_fill_value(self.nodata)
             if self.nodata is not None:
-                m = np.ma.masked_values(m, self.nodata)
+                m = np.ma.masked_values(m, self.nodata, copy=False)
             pixbuf = bytes(np.getbuffer(m.filled()))
         else:
             pixbuf = self.ds.ReadRaster(*readargs)
