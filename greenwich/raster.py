@@ -567,8 +567,7 @@ class Raster(Comparable):
         Overrides gdal.Dataset.ReadRaster() with the full raster size by
         default.
         """
-        if len(args) < 4:
-            args = (0, 0, self.ds.RasterXSize, self.ds.RasterYSize)
+        args = args or (0, 0, self.ds.RasterXSize, self.ds.RasterYSize)
         return self.ds.ReadRaster(*args, **kwargs)
 
     def resample(self, size, interpolation=gdalconst.GRA_NearestNeighbour):

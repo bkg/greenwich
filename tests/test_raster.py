@@ -112,6 +112,9 @@ class RasterTestCase(RasterTestBase):
         px_a = self.hexdigest(self.ds.crop(self.bbox_4326).ReadRaster())
         px_b = self.hexdigest(cropped.ReadRaster())
         self.assertEqual(px_a, px_b)
+        px_c = self.hexdigest(self.ds.ReadRaster(*(0, 0) + cropped.size))
+        # Reading with cropped dims should be equivalent.
+        self.assertEqual(px_a, px_c)
         r = self.ds.crop(tuple(Envelope.from_geom(self.bbox)))
         csum = r[0].Checksum()
         r.close()
