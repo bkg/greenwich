@@ -14,15 +14,20 @@ from greenwich.io import MemFileIO, VSIFile
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
 
-def create_gdal_datasource(fname, dtype=np.ubyte):
+def create_gdal_datasource(fname=None, dtype=np.ubyte, bands=1):
     """Returns a GDAL Datasource for testing."""
     xsize, ysize = 800, 1000
     arr = np.ones((ysize, xsize), dtype=dtype)
-    driver = gdal.GetDriverByName('GTiff')
-    datasource = driver.Create(fname, xsize, ysize)
-    band = datasource.GetRasterBand(1)
-    band.WriteArray(arr)
-    band.SetNoDataValue(0)
+    if fname:
+        driver = gdal.GetDriverByName('GTiff')
+    else:
+        driver = gdal.GetDriverByName('MEM')
+        fname = ''
+    datasource = driver.Create(fname, xsize, ysize, bands)
+    for bandnum in range(1, bands + 1):
+        band = datasource.GetRasterBand(bandnum)
+        band.WriteArray(arr)
+        band.SetNoDataValue(0)
     sref = osr.SpatialReference()
     sref.ImportFromEPSG(3857)
     datasource.SetProjection(sref.ExportToWkt())
@@ -122,13 +127,14 @@ class RasterTestCase(RasterTestBase):
 
     def test_clip(self):
         """Test clipping a raster with a geometry."""
-        rast = self.ds.clip(self.geom)
+        multiband = Raster(create_gdal_datasource(bands=3))
+        rast = multiband.clip(self.geom)
         arr = rast.array()
         rast.close()
         # First element should be masked.
-        self.assertEqual(arr[0,0], self.ds.nodata)
+        self.assertEqual(arr[0,0], multiband.nodata)
         # Center element should be unmasked.
-        center = arr.shape[0] / 2, arr.shape[1] / 2
+        center = (arr.shape[0] / 2, arr.shape[1] / 2)
         self.assertEqual(arr[center], 1)
         with self.ds.clip(self.bbox) as r:
             m = r.masked_array()

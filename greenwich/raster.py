@@ -529,9 +529,9 @@ class Raster(Comparable):
         # than a crop.
         if not geom.Equals(env.polygon):
             arr = self.ds.ReadAsArray(*readargs)
-            mask_arr = geom_to_array(geom, dims, affine)
-            m = np.ma.masked_array(arr, mask=mask_arr)
-            #m.set_fill_value(self.nodata)
+            m = np.ma.masked_array(arr)
+            # This will broadcast whereas np.ma.masked_array() does not.
+            m.mask = geom_to_array(geom, dims, affine)
             if self.nodata is not None:
                 m = np.ma.masked_values(m, self.nodata, copy=False)
             pixbuf = bytes(np.getbuffer(m.filled()))
