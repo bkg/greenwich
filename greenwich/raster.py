@@ -528,12 +528,9 @@ class Raster(Comparable):
         # Without a simple envelope, this becomes a masking operation rather
         # than a crop.
         if not geom.Equals(env.polygon):
-            arr = self.ds.ReadAsArray(*readargs)
-            m = np.ma.masked_array(arr)
+            m = self.masked_array(env)
             # This will broadcast whereas np.ma.masked_array() does not.
             m.mask = geom_to_array(geom, dims, affine)
-            if self.nodata is not None:
-                m = np.ma.masked_values(m, self.nodata, copy=False)
             pixbuf = bytes(np.getbuffer(m.filled()))
         else:
             pixbuf = self.ds.ReadRaster(*readargs)
@@ -548,9 +545,9 @@ class Raster(Comparable):
         envelope -- coordinate extent tuple or Envelope
         """
         arr = self.array(envelope)
-        if self.nodata is None:
-            return np.ma.masked_array(arr)
-        return np.ma.masked_values(arr, self.nodata)
+        if self.nodata is not None:
+            return np.ma.masked_values(arr, self.nodata, copy=False)
+        return np.ma.masked_array(arr)
 
     @property
     def nodata(self):
