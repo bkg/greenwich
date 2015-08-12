@@ -80,7 +80,7 @@ def transform_mask(geom, to_sref):
     try:
         geom_sref = geom.GetSpatialReference()
     except AttributeError:
-        return transform_mask(Geometry(geom))
+        return transform_mask(Geometry(geom), to_sref)
     if geom_sref is None:
         raise Exception('Cannot transform from unknown spatial reference')
     # Reproject geom if necessary
