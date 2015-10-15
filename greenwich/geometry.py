@@ -197,7 +197,7 @@ def Geometry(*args, **kwargs):
     try:
         srs = kwargs.pop('srs', None) or arg.srs.wkt
     except AttributeError:
-        srs = None
+        srs = SpatialReference(4326)
     if hasattr(arg, 'keys'):
         geom = ogr.CreateGeometryFromJson(json.dumps(arg))
     elif hasattr(arg, 'startswith'):
@@ -215,6 +215,5 @@ def Geometry(*args, **kwargs):
     if geom:
         if not isinstance(srs, SpatialReference):
             srs = SpatialReference(srs)
-        srs = srs or SpatialReference(4326)
         geom.AssignSpatialReference(srs)
     return geom

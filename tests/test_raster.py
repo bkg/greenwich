@@ -91,6 +91,11 @@ class RasterTestCase(RasterTestBase):
         # Need to verify upper right and lower left pairs
         self.assertIsInstance(self.ds.envelope, Envelope)
 
+    def test_transform_mask(self):
+        sref = SpatialReference(3857)
+        tr = transform_mask(self.geom.ExportToWkb(), sref)
+        self.assertEqual(tr.GetSpatialReference(), sref)
+
     def hexdigest(self, s):
         return hashlib.md5(s).hexdigest()
 
