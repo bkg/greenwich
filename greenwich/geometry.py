@@ -200,14 +200,21 @@ def Geometry(*args, **kwargs):
         srs = None
     if hasattr(arg, 'keys'):
         geom = ogr.CreateGeometryFromJson(json.dumps(arg))
-    elif hasattr(arg, 'startswith') and arg.startswith('{'):
-        geom = ogr.CreateGeometryFromJson(arg)
+    elif hasattr(arg, 'startswith'):
+        if arg.startswith('{'):
+            geom = ogr.CreateGeometryFromJson(arg)
+        # WKB as hexadecimal string.
+        elif ord(arg[0]) in [0, 1]:
+            geom = ogr.CreateGeometryFromWkb(arg)
+        elif arg.startswith('<gml'):
+            geom = ogr.CreateGeometryFromGML(arg)
     elif hasattr(arg, 'wkb'):
         geom = ogr.CreateGeometryFromWkb(bytes(arg.wkb))
     else:
         geom = ogr.Geometry(*args, **kwargs)
-    if srs and geom:
+    if geom:
         if not isinstance(srs, SpatialReference):
             srs = SpatialReference(srs)
+        srs = srs or SpatialReference(4326)
         geom.AssignSpatialReference(srs)
     return geom
