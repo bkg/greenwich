@@ -9,7 +9,8 @@ import numpy as np
 from osgeo import gdal, ogr, osr
 
 from greenwich.raster import (ImageDriver, Raster, AffineTransform,
-    count_unique, driver_for_path, geom_to_array, frombytes, open as ropen)
+    count_unique, driver_for_path, geom_to_array, frombytes,
+    open as ropen, transform_mask)
 from greenwich.io import MemFileIO, VSIFile
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
