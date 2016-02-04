@@ -23,6 +23,10 @@ class MemFileIOTestCase(unittest.TestCase):
         # Reading a closed file should throw an error.
         self.assertRaises(ValueError, self.imgio.read)
 
+    def test_getvalue(self):
+        self.imgio.seek(len(self.data))
+        self.assertEqual(self.imgio.getvalue(), self.data)
+
     def test_read(self):
         imgio = MemFileIO()
         self.assertFalse(os.path.exists(imgio.name))

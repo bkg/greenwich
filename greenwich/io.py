@@ -138,6 +138,11 @@ class MemFileIO(VSIFile):
             if self.delete:
                 gdal.Unlink(self.name)
 
+    def getvalue(self):
+        if self.tell() > 0:
+            self.seek(0)
+        return self.read()
+
     def readable(self):
         # Opened mem files are always readable regardless of mode.
         return not self.closed
