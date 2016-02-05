@@ -258,6 +258,10 @@ class RasterTestCase(RasterTestBase):
         size = tuple([i / 2 for i in self.ds.size])
         output = self.ds.resample(size)
         self.assertEqual(output.size, size)
+        input_geotransform = self.ds.GetGeoTransform()
+        output_geotransform = output.ds.GetGeoTransform()
+        self.assertEqual(input_geotransform[1] * 2, output_geotransform[1])
+        self.assertEqual(input_geotransform[5] * 2, output_geotransform[5])
 
     def test_new(self):
         dcopy = self.ds.new()
