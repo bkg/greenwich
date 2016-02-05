@@ -577,8 +577,8 @@ class Raster(Comparable):
         factors = (size[0] / float(self.RasterXSize),
                    size[1] / float(self.RasterYSize))
         affine = AffineTransform(*tuple(self.affine))
-        affine.scale = (affine.scale[0] * factors[0],
-                        affine.scale[1] * factors[1])
+        affine.scale = (affine.scale[0] / factors[0],
+                        affine.scale[1] / factors[1])
         dest = self.new(size, affine)
         # Uses self and dest projection when set to None
         gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
