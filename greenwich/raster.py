@@ -50,7 +50,7 @@ def geom_to_array(geom, size, affine):
     draw = ImageDraw.Draw(img)
     # MultiPolygon or Polygon with interior rings don't need another level of
     # nesting, but non-donut Polygons do.
-    if geom.GetGeometryCount() <= 1:
+    if geom.GetGeometryName == 'POLYGON' and geom.GetGeometryCount() <= 1:
         geom = [geom]
     for g in geom:
         if g.GetCoordinateDimension() > 2:
