@@ -255,9 +255,12 @@ class RasterTestCase(RasterTestBase):
 
     def test_resample(self):
         # Half the original resolution
-        size = tuple([i / 2 for i in self.ds.size])
+        factor = 2
+        size = tuple([i / factor for i in self.ds.size])
         output = self.ds.resample(size)
         self.assertEqual(output.size, size)
+        self.assertEqual(output.affine.scale,
+            tuple(x * factor for x in self.ds.affine.scale))
 
     def test_new(self):
         dcopy = self.ds.new()
