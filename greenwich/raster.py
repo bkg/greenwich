@@ -50,7 +50,7 @@ def geom_to_array(geom, size, affine):
     draw = ImageDraw.Draw(img)
     # MultiPolygon or Polygon with interior rings don't need another level of
     # nesting, but non-donut Polygons do.
-    if geom.GetGeometryCount() <= 1:
+    if geom.GetGeometryName() == 'POLYGON' and geom.GetGeometryCount() <= 1:
         geom = [geom]
     for g in geom:
         if g.GetCoordinateDimension() > 2:
@@ -577,8 +577,8 @@ class Raster(Comparable):
         factors = (size[0] / float(self.RasterXSize),
                    size[1] / float(self.RasterYSize))
         affine = AffineTransform(*tuple(self.affine))
-        affine.scale = (affine.scale[0] * factors[0],
-                        affine.scale[1] * factors[1])
+        affine.scale = (affine.scale[0] / factors[0],
+                        affine.scale[1] / factors[1])
         dest = self.new(size, affine)
         # Uses self and dest projection when set to None
         gdal.ReprojectImage(self.ds, dest.ds, None, None, interpolation)
