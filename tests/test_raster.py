@@ -156,7 +156,7 @@ class RasterTestCase(RasterTestBase):
 
     def test_frombytes(self):
         shape = (2, 3, 5)
-        pixdat = bytes(np.ones(shape, dtype=np.float32).data)
+        pixdat = bytes(np.random.random(shape).astype(np.float32).data)
         r = frombytes(pixdat, (3, 2, 5), gdal.GDT_Float32)
         self.assertEqual(r.shape, shape)
         self.assertEqual(r.ReadRaster(), pixdat)
@@ -260,7 +260,7 @@ class RasterTestCase(RasterTestBase):
         output = self.ds.resample(size)
         self.assertEqual(output.size, size)
         self.assertEqual(output.affine.scale,
-            tuple(x * factor for x in self.ds.affine.scale))
+                         tuple(x * factor for x in self.ds.affine.scale))
 
     def test_new(self):
         dcopy = self.ds.new()

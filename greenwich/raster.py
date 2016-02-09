@@ -693,7 +693,7 @@ def frombytes(data, size, bandtype=gdal.GDT_Byte):
 
     Arguments:
     data -- byte buffer of raw pixel data
-    size -- the raster size
+    size -- two or three-tuple of (xsize, ysize, bandcount)
     bandtype -- band data type
     """
     r = ImageDriver('MEM').raster('', size, bandtype)
