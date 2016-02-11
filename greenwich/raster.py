@@ -4,7 +4,7 @@ import xml.etree.cElementTree as ET
 
 import numpy as np
 from PIL import Image, ImageDraw
-from osgeo import gdal, gdalconst
+from osgeo import gdal, gdalconst, ogr
 
 from greenwich.base import Comparable
 from greenwich.io import MemFileIO, vsiprefix
@@ -46,18 +46,17 @@ def geom_to_array(geom, size, affine):
     size -- array size in pixels as a tuple of (width, height)
     affine -- AffineTransform
     """
-    img = Image.new('L', size, 1)
+    background = 1
+    img = Image.new('L', size, background)
     draw = ImageDraw.Draw(img)
-    # MultiPolygon or Polygon with interior rings don't need another level of
-    # nesting, but non-donut Polygons do.
-    if geom.GetGeometryCount() <= 1:
+    if geom.GetGeometryType() == ogr.wkbPolygon:
         geom = [geom]
-    for g in geom:
-        if g.GetCoordinateDimension() > 2:
-            g.FlattenTo2D()
-        boundary = g.Boundary()
-        coords = boundary.GetPoints() if boundary else g.GetPoints()
-        draw.polygon(affine.transform(coords), 0)
+    for polygon in geom:
+        if polygon.GetCoordinateDimension() > 2:
+            polygon.FlattenTo2D()
+        fills = (0,) + (background,) * polygon.GetGeometryCount()
+        for ring, fill in zip(polygon, fills):
+            draw.polygon(affine.transform(ring.GetPoints()), fill)
     return np.asarray(img)
 
 def count_unique(arr):

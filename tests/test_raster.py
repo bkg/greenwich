@@ -228,14 +228,21 @@ class RasterTestCase(RasterTestBase):
     def test_geom_to_array(self):
         geom = self.geom.Clone()
         geom.TransformTo(self.ds.sref)
-        # Create a "island" polygon to test interior and exterior rings.
-        poly = geom.Centroid().Buffer(0.5)
+        point = geom.Centroid()
+        point.AssignSpatialReference(self.ds.sref)
+        poly = point.Buffer(self.ds.affine.scale[0])
+        # Create "island" polygon to test interior and exterior rings.
         gdiff = geom.Difference(poly)
-        for g in (geom, gdiff):
+        mpoly = ogr.Geometry(ogr.wkbMultiPolygon)
+        mpoly.AssignSpatialReference(self.ds.sref)
+        mpoly.AddGeometry(gdiff)
+        for g in geom, gdiff, mpoly:
             arr = geom_to_array(g, self.ds.size, self.ds.affine)
             self.assertEqual(arr.shape, self.ds.shape)
-            self.assertEqual(arr.min(), 0)
-            self.assertEqual(arr.max(), 1)
+            self.assertEqual((arr.min(), arr.max()), (0, 1))
+        x, y = self.ds.affine.transform(point.GetPoints())[0]
+        # Pixel within island should use the background color.
+        self.assertEqual(arr[y,x], 1)
 
     def test_count_unique(self):
         a = np.array([(0, 1), (0, 2)])
