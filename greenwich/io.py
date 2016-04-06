@@ -56,6 +56,16 @@ class VSIFile(object):
         self.close()
         return True
 
+    def __iter__(self):
+        self._check_closed()
+        return self
+
+    def next(self):
+        line = self.readline()
+        if not line:
+            raise StopIteration
+        return line
+
     def __repr__(self):
         status = 'closed' if self.closed else 'open'
         repstr = '<%s: %s %r, mode "%s">'
@@ -87,6 +97,17 @@ class VSIFile(object):
         size = len(data)
         b[:size] = data
         return size
+
+    def readline(self, limit=-1):
+        res = bytearray()
+        while limit < 0 or len(res) < limit:
+            b = self.read(1)
+            if not b:
+                break
+            res += b
+            if res.endswith(b'\n'):
+                break
+        return bytes(res)
 
     def seek(self, offset, whence=0):
         self._check_closed()
