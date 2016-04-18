@@ -657,9 +657,10 @@ class Raster(Comparable):
             imgio.close()
         newrast.SetGeoTransform(warptrans)
         newrast.SetProjection(to_sref)
-        for band in newrast:
-            band.SetNoDataValue(self.nodata)
-            band = None
+        if self.nodata is not None:
+            for band in newrast:
+                band.SetNoDataValue(self.nodata)
+                band = None
         # Uses self and newrast projection when set to None
         gdal.ReprojectImage(self.ds, newrast.ds, None, None, interpolation)
         return newrast
