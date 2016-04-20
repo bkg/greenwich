@@ -651,10 +651,12 @@ class Raster(Comparable):
         warpsize = (vrt.RasterXSize, vrt.RasterYSize, len(self))
         warptrans = vrt.GetGeoTransform()
         vrt = None
-        imgio = dest or MemFileIO()
-        newrast = self.driver.raster(imgio, warpsize, dtype)
-        if isinstance(imgio, MemFileIO):
+        if dest is None:
+            imgio = MemFileIO()
+            newrast = self.driver.raster(imgio, warpsize, dtype)
             imgio.close()
+        else:
+            newrast = self.driver.raster(dest, warpsize, dtype)
         newrast.SetGeoTransform(warptrans)
         newrast.SetProjection(to_sref)
         if self.nodata is not None:
