@@ -261,8 +261,8 @@ class RasterTestCase(RasterTestBase):
         fp.close()
 
     def test_warp_failure(self):
-        # Not possible to transform from pseudo-mercator to ETRS89/GK21FIN.
-        self.assertRaises(ValueError, self.ds.warp, 3875)
+        # Not possible to transform between these coordinate systems.
+        self.assertRaises(ValueError, self.ds.warp, 29635)
 
     def test_resample(self):
         # Half the original resolution
