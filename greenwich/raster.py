@@ -648,6 +648,8 @@ class Raster(Comparable):
         # geotransform.
         vrt = gdal.AutoCreateWarpedVRT(self.ds, None, dest_wkt,
                                        interpolation, err_thresh)
+        if vrt is None:
+            raise ValueError('Could not warp %s to %s' % (self, dest_wkt))
         warpsize = (vrt.RasterXSize, vrt.RasterYSize, len(self))
         warptrans = vrt.GetGeoTransform()
         vrt = None

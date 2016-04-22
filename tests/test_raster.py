@@ -260,6 +260,10 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(r.sref.srid, epsg_id)
         fp.close()
 
+    def test_warp_failure(self):
+        # Not possible to transform from pseudo-mercator to ETRS89/GK21FIN.
+        self.assertRaises(ValueError, self.ds.warp, 3875)
+
     def test_resample(self):
         # Half the original resolution
         factor = 2
