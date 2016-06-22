@@ -153,7 +153,8 @@ class AffineTransform(Comparable):
         # Use local vars for better performance here.
         origin_x, origin_y = self.origin
         sx, sy = self.scale
-        return [(int((x - origin_x) / sx), int((y - origin_y) / sy))
+        return [(int(round((x - origin_x) / sx)),
+                 int(round((y - origin_y) / sy)))
                 for x, y in coords]
 
     @property
@@ -485,7 +486,7 @@ class Raster(Comparable):
         ul_px, lr_px = self.affine.transform((envelope.ul, envelope.lr))
         nx = min(lr_px[0] - ul_px[0], self.ds.RasterXSize - ul_px[0])
         ny = min(lr_px[1] - ul_px[1], self.ds.RasterYSize - ul_px[1])
-        return ul_px + (nx, ny)
+        return ul_px + (max(nx, 1), max(ny, 1))
 
     @property
     def driver(self):

@@ -146,6 +146,19 @@ class RasterTestCase(RasterTestBase):
             m = r.masked_array()
         self.assertLess(m.shape, self.ds.shape)
 
+    def test_clip_subpixel(self):
+        """Test clipping a raster with a polygon smaller than a pixel."""
+        env = self.ds.envelope
+        coord = map(lambda a, b: a + b * 1.01,
+                    self.ds.affine.origin, self.ds.affine.scale)
+        point = ogr.Geometry(ogr.wkbPoint)
+        point.AddPoint(*coord)
+        m2 = point.Buffer(self.ds.affine.scale[0] / 2)
+        m2.AssignSpatialReference(self.ds.sref)
+        r = self.ds.clip(m2)
+        self.assertEqual(r.shape, (1, 1))
+        self.assertEqual(r.array(), np.array([[1]]))
+
     def test_close(self):
         with self.assertRaises(AttributeError):
             self.ds.abc123
