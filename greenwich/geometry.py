@@ -66,7 +66,10 @@ class Envelope(Comparable):
         envp -- Envelope or tuple of (minX, minY, maxX, maxY)
         """
         try:
-            return self.ll <= envp.ll and self.ur >= envp.ur
+            return (self.min_x <= envp.min_x and
+                    self.min_y <= envp.min_y and
+                    self.max_x >= envp.max_x and
+                    self.max_y >= envp.max_y)
         except AttributeError:
             # Perhaps we have a tuple, try again with an Envelope.
             return self.contains(Envelope(envp))
@@ -111,7 +114,10 @@ class Envelope(Comparable):
         envp -- Envelope or tuple of (minX, minY, maxX, maxY)
         """
         try:
-            return self.ll <= envp.ur and self.ur >= envp.ll
+            return (self.min_x <= envp.max_x and
+                    self.max_x >= envp.min_x and
+                    self.min_y <= envp.max_y and
+                    self.max_y >= envp.min_y)
         except AttributeError:
             return self.intersects(Envelope(envp))
 

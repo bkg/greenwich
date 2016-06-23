@@ -21,6 +21,7 @@ class EnvelopeTestCase(unittest.TestCase):
     def test_contains(self):
         self.assertIn(self.esub, self.en)
         self.assertFalse(self.en.contains((0, 0, 0, 0)))
+        self.assertFalse(self.en.contains((-118, 45, -115, 50)))
         self.assertRaises(ValueError, self.en.contains, ())
 
     def test_subtract(self):
@@ -57,6 +58,8 @@ class EnvelopeTestCase(unittest.TestCase):
         self.assertTrue(self.en.intersects(overlapping))
         outside = Envelope(0, 0, 5, 5)
         self.assertFalse(self.en.intersects(outside))
+        outside_below = Envelope(-118, 20, -116, 25)
+        self.assertFalse(self.en.intersects(outside_below))
         self.assertRaises(ValueError, self.en.intersects, ())
 
     def test_invalid(self):
