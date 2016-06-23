@@ -520,7 +520,7 @@ class Raster(Comparable):
 
     def _mask(self, geom):
         geom = transform_mask(geom, self.sref)
-        env = Envelope.from_geom(geom)
+        env = Envelope.from_geom(geom).intersect(self.envelope)
         readargs = self.get_offset(env)
         dims = readargs[2:4]
         affine = AffineTransform(*tuple(self.affine))
