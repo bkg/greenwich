@@ -172,7 +172,8 @@ class ImageDriver(object):
     # GDAL driver default creation options.
     defaults = {'img': {'compressed': 'yes'},
                 'nc': {'compress': 'deflate'},
-                'tif': {'tiled': 'yes', 'compress': 'packbits'}}
+                'tif': {'tiled': 'yes', 'compress': 'packbits'},
+                'xyz': {'column_separator': ',', 'add_header_line': 'yes'}}
     registry = available_drivers()
 
     def __init__(self, driver='GTiff', strictmode=True, **kwargs):
