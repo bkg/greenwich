@@ -35,13 +35,13 @@ class Envelope(Comparable):
             exc.args = ('Sequence length should be "4", not "%d"' % len(args),)
             raise
 
-    def __add__(self, envp):
+    def __add__(self, other):
         combined = Envelope(tuple(self))
-        combined.expand(envp)
+        combined.expand(other)
         return combined
 
-    def __contains__(self, envp):
-        return self.contains(envp)
+    def __contains__(self, other):
+        return self.contains(other)
 
     def __getitem__(self, index):
         return self.tuple[index]
@@ -56,44 +56,35 @@ class Envelope(Comparable):
     def __repr__(self):
         return '<%s: %r>' % (self.__class__.__name__, self.tuple)
 
-    def __sub__(self, envp):
-        return self.intersect(envp)
+    def __sub__(self, other):
+        return self.intersect(other)
 
-    def contains(self, envp):
+    def contains(self, other):
         """Returns true if this envelope contains another.
 
         Arguments:
-        envp -- Envelope or tuple of (minX, minY, maxX, maxY)
+        other -- Envelope or tuple of (minX, minY, maxX, maxY)
         """
         try:
-            return (self.min_x <= envp.min_x and
-                    self.min_y <= envp.min_y and
-                    self.max_x >= envp.max_x and
-                    self.max_y >= envp.max_y)
+            return (self.min_x <= other.min_x and
+                    self.min_y <= other.min_y and
+                    self.max_x >= other.max_x and
+                    self.max_y >= other.max_y)
         except AttributeError:
             # Perhaps we have a tuple, try again with an Envelope.
-            return self.contains(Envelope(envp))
+            return self.contains(Envelope(other))
 
-    def clip(self, envp):
-        if self.intersects(envp):
-            mid = len(envp) / 2
-            self.ll = map(max, self.ll, envp[:mid])
-            self.ur = map(min, self.ur, envp[mid:])
-        else:
-            self.ll = (0, 0)
-            self.ur = (0, 0)
-
-    def expand(self, envp):
+    def expand(self, other):
         """Expands this envelope by the given Envelope or tuple.
 
         Arguments:
-        envp -- Envelope, two-tuple, or four-tuple
+        other -- Envelope, two-tuple, or four-tuple
         """
-        if len(envp) == 2:
-            envp += envp
-        mid = len(envp) / 2
-        self.ll = map(min, self.ll, envp[:mid])
-        self.ur = map(max, self.ur, envp[mid:])
+        if len(other) == 2:
+            other += other
+        mid = len(other) / 2
+        self.ll = map(min, self.ll, other[:mid])
+        self.ur = map(max, self.ur, other[mid:])
 
     @staticmethod
     def from_geom(geom):
@@ -105,25 +96,31 @@ class Envelope(Comparable):
     def height(self):
         return self.max_y - self.min_y
 
-    def intersect(self, envp):
+    def intersect(self, other):
         """Returns the intersection of this and another Envelope."""
-        intersection = Envelope(tuple(self))
-        intersection.clip(envp)
-        return intersection
+        inter = Envelope(tuple(self))
+        if inter.intersects(other):
+            mid = len(other) / 2
+            inter.ll = map(max, inter.ll, other[:mid])
+            inter.ur = map(min, inter.ur, other[mid:])
+        else:
+            inter.ll = (0, 0)
+            inter.ur = (0, 0)
+        return inter
 
-    def intersects(self, envp):
+    def intersects(self, other):
         """Returns true if this envelope intersects another.
 
         Arguments:
-        envp -- Envelope or tuple of (minX, minY, maxX, maxY)
+        other -- Envelope or tuple of (minX, minY, maxX, maxY)
         """
         try:
-            return (self.min_x <= envp.max_x and
-                    self.max_x >= envp.min_x and
-                    self.min_y <= envp.max_y and
-                    self.max_y >= envp.min_y)
+            return (self.min_x <= other.max_x and
+                    self.max_x >= other.min_x and
+                    self.min_y <= other.max_y and
+                    self.max_y >= other.min_y)
         except AttributeError:
-            return self.intersects(Envelope(envp))
+            return self.intersects(Envelope(other))
 
     @property
     def ll(self):
