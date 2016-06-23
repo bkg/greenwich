@@ -50,10 +50,18 @@ class EnvelopeTestCase(unittest.TestCase):
                          Envelope(-110, 45, -120, 38))
         # Zero area envelopes are valid.
         self.assertIsInstance(Envelope(1, 1, 1, 1), Envelope)
+        self.assertEqual(len(self.en), 4)
+
+    def test_intersect(self):
+        self.assertEqual(self.en.intersect(self.esub), self.esub)
+        e = Envelope(-112, 32, 0, 36)
+        self.assertEqual(self.en.intersect(e), Envelope(-112, 32, -110, 36))
+        e2 = Envelope(0, 0, 10, 10)
+        self.assertEqual(self.en.intersect(e2), Envelope(0, 0, 0, 0))
 
     def test_intersects(self):
         # Move lower-left coord further out.
-        overlapping = Envelope(self.en.min_x - 10, self.en.min_y -10,
+        overlapping = Envelope(self.en.min_x - 10, self.en.min_y - 10,
                                *self.en.ur)
         self.assertTrue(self.en.intersects(overlapping))
         outside = Envelope(0, 0, 5, 5)

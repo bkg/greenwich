@@ -75,9 +75,13 @@ class Envelope(Comparable):
             return self.contains(Envelope(envp))
 
     def clip(self, envp):
-        mid = len(self) / 2
-        self.ll = map(max, self.ll, envp[:mid])
-        self.ur = map(min, self.ur, envp[mid:])
+        if self.intersects(envp):
+            mid = len(envp) / 2
+            self.ll = map(max, self.ll, envp[:mid])
+            self.ur = map(min, self.ur, envp[mid:])
+        else:
+            self.ll = (0, 0)
+            self.ur = (0, 0)
 
     def expand(self, envp):
         """Expands this envelope by the given Envelope or tuple.
@@ -87,7 +91,7 @@ class Envelope(Comparable):
         """
         if len(envp) == 2:
             envp += envp
-        mid = len(self) / 2
+        mid = len(envp) / 2
         self.ll = map(min, self.ll, envp[:mid])
         self.ur = map(max, self.ur, envp[mid:])
 
