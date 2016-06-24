@@ -1,5 +1,6 @@
 """Raster data handling"""
 import os
+import math
 import xml.etree.cElementTree as ET
 
 import numpy as np
@@ -153,8 +154,8 @@ class AffineTransform(Comparable):
         # Use local vars for better performance here.
         origin_x, origin_y = self.origin
         sx, sy = self.scale
-        return [(int(round((x - origin_x) / sx)),
-                 int(round((y - origin_y) / sy)))
+        return [(int(math.floor((x - origin_x) / sx)),
+                 int(math.floor((y - origin_y) / sy)))
                 for x, y in coords]
 
     @property
