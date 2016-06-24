@@ -41,7 +41,13 @@ def create_gdal_datasource(fname=None, dtype=np.ubyte, bands=1):
 
 class AffineTransformTestCase(unittest.TestCase):
     def setUp(self):
-        self.affine = AffineTransform(*(-120, 2, 0.0, 38, 0.0, -2))
+        self.affine = AffineTransform(-120, 2, 0.0, 38, 0.0, -2)
+
+    def test_transform(self):
+        x, y = self.affine.origin
+        inputs = [(x, y), (x - .1, y)]
+        expected = [(0, 0), (-1, 0)]
+        self.assertEqual(self.affine.transform(inputs), expected)
 
     def test_transform_to_projected(self):
         coord = tuple(self.affine.transform_to_projected(((0, 0),)))
