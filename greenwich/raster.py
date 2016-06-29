@@ -506,9 +506,8 @@ class Raster(Comparable):
         """
         size = size or self.size + (len(self),)
         band = self.ds.GetRasterBand(1)
-        imgio = MemFileIO(suffix='.%s' % self.driver.ext)
-        rcopy = self.driver.raster(imgio, size, band.DataType)
-        imgio.close()
+        driver = ImageDriver('MEM')
+        rcopy = driver.raster(driver.ShortName, size, band.DataType)
         rcopy.sref = self.GetProjection()
         rcopy.affine = affine or tuple(self.affine)
         colors = band.GetColorTable()
