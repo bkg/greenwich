@@ -536,7 +536,7 @@ class Raster(Comparable):
             pixbuf = bytes(np.getbuffer(m.filled()))
         else:
             pixbuf = self.ds.ReadRaster(*readargs)
-        clone = self.new(dims, affine)
+        clone = self.new(dims + (len(self),), affine)
         clone.frombytes(pixbuf)
         return clone
 

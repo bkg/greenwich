@@ -139,10 +139,11 @@ class RasterTestCase(RasterTestBase):
 
     def test_clip(self):
         """Test clipping a raster with a geometry."""
-        multiband = Raster(create_gdal_datasource(bands=3))
+        bands = 3
+        multiband = Raster(create_gdal_datasource(bands=bands))
         rast = multiband.clip(self.geom)
-        arr = rast.array()
-        rast.close()
+        self.assertEqual(len(rast), bands)
+        arr = rast.array()[0]
         # First element should be masked.
         self.assertEqual(arr[0,0], multiband.nodata)
         # Center element should be unmasked.
