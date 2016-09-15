@@ -26,7 +26,7 @@ class Envelope(Comparable):
         try:
             extent = map(float, args)
         except (TypeError, ValueError) as exc:
-            exc.args = ('Cannot create Envelope from "%s"' % args,)
+            exc.args = ('Cannot create Envelope from "%s"' % repr(args),)
             raise
         try:
             self.min_x, self.max_x = sorted(extent[::2])

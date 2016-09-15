@@ -51,6 +51,7 @@ class EnvelopeTestCase(unittest.TestCase):
         # Zero area envelopes are valid.
         self.assertIsInstance(Envelope(1, 1, 1, 1), Envelope)
         self.assertEqual(len(self.en), 4)
+        self.assertRaises(ValueError, Envelope, tuple('abcd'))
 
     def test_intersect(self):
         self.assertEqual(self.en.intersect(self.esub), self.esub)
