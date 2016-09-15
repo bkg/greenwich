@@ -486,9 +486,9 @@ class Raster(Comparable):
                 self.envelope.intersects(envelope)):
             raise ValueError('Envelope does not intersect with this extent')
         ul_px, lr_px = self.affine.transform((envelope.ul, envelope.lr))
-        nx = min(lr_px[0] - ul_px[0], self.ds.RasterXSize - ul_px[0])
-        ny = min(lr_px[1] - ul_px[1], self.ds.RasterYSize - ul_px[1])
-        return ul_px + (max(nx, 1), max(ny, 1))
+        nx = min(lr_px[0] + 1, self.ds.RasterXSize) - ul_px[0]
+        ny = min(lr_px[1] + 1, self.ds.RasterYSize) - ul_px[1]
+        return ul_px + (nx, ny)
 
     @property
     def driver(self):
