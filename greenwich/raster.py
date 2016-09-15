@@ -485,10 +485,10 @@ class Raster(Comparable):
         if not (self.envelope.contains(envelope) or
                 self.envelope.intersects(envelope)):
             raise ValueError('Envelope does not intersect with this extent')
-        ul_px, lr_px = self.affine.transform((envelope.ul, envelope.lr))
-        nx = min(lr_px[0] + 1, self.ds.RasterXSize) - ul_px[0]
-        ny = min(lr_px[1] + 1, self.ds.RasterYSize) - ul_px[1]
-        return ul_px + (nx, ny)
+        coords = self.affine.transform((envelope.ul, envelope.lr))
+        nxy = [min(dest + 1, size) - origin
+               for size, origin, dest in zip(self.size, *coords)]
+        return coords[0] + tuple(nxy)
 
     @property
     def driver(self):
