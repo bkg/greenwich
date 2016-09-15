@@ -38,6 +38,11 @@ def create_gdal_datasource(fname=None, dtype=np.ubyte, bands=1):
     datasource.FlushCache()
     return datasource
 
+def make_point(coord):
+    point = ogr.Geometry(ogr.wkbPoint)
+    point.AddPoint(*coord)
+    return point
+
 
 class AffineTransformTestCase(unittest.TestCase):
     def setUp(self):
@@ -156,16 +161,29 @@ class RasterTestCase(RasterTestBase):
 
     def test_clip_subpixel(self):
         """Test clipping a raster with a polygon smaller than a pixel."""
-        env = self.ds.envelope
-        coord = map(lambda a, b: a + b * 1.01,
+        # Create point at center of pixel (3, 3).
+        coord = map(lambda a, b: a + b * 4.0 - b / 2.0,
                     self.ds.affine.origin, self.ds.affine.scale)
-        point = ogr.Geometry(ogr.wkbPoint)
-        point.AddPoint(*coord)
-        m2 = point.Buffer(self.ds.affine.scale[0] / 2)
-        m2.AssignSpatialReference(self.ds.sref)
-        r = self.ds.clip(m2)
-        self.assertEqual(r.shape, (1, 1))
+        point = make_point(coord)
+        # Scale value by 49% since 50% would include pixel neighbors.
+        poly = point.Buffer(self.ds.affine.scale[0] * .49)
+        poly.AssignSpatialReference(self.ds.sref)
+        r = self.ds.clip(poly)
         self.assertEqual(r.array(), np.array([[1]]))
+        r.close()
+
+    def test_clip_overlapping(self):
+        """Test clipping a raster with an edge ovelapping polygon."""
+        outer_ul = list(self.ds.affine.origin)
+        for idx, val in enumerate(self.ds.affine.scale):
+            outer_ul[idx] -= val
+        point = make_point(outer_ul)
+        poly = point.Buffer(self.ds.affine.scale[0] * 2)
+        poly.AssignSpatialReference(self.ds.sref)
+        r = self.ds.clip(poly)
+        # Should return 2x2 pixel window with upper-left corner unmasked.
+        self.assertEqual(r.array().tolist(), [[1, 0], [0, 0]])
+        r.close()
 
     def test_close(self):
         with self.assertRaises(AttributeError):
