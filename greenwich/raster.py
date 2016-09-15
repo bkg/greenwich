@@ -1,5 +1,6 @@
 """Raster data handling"""
 import os
+import collections
 import math
 import xml.etree.cElementTree as ET
 
@@ -415,7 +416,7 @@ class Raster(Comparable):
         Arguments:
         affine -- AffineTransform or six-tuple of geotransformation values
         """
-        if isinstance(affine, tuple):
+        if isinstance(affine, collections.Sequence):
             affine = AffineTransform(*affine)
         self._affine = affine
         self.ds.SetGeoTransform(affine)
@@ -453,7 +454,7 @@ class Raster(Comparable):
         Arguments:
         bbox -- bounding box as an OGR Polygon, Envelope, or tuple
         """
-        if isinstance(bbox, tuple):
+        if isinstance(bbox, collections.Sequence):
             bbox = Envelope(bbox).polygon
             bbox.AssignSpatialReference(self.sref)
         return self._mask(bbox)
@@ -480,7 +481,7 @@ class Raster(Comparable):
         Arguments:
         envelope -- coordinate extent tuple or Envelope
         """
-        if isinstance(envelope, tuple):
+        if isinstance(envelope, collections.Sequence):
             envelope = Envelope(envelope)
         if not (self.envelope.contains(envelope) or
                 self.envelope.intersects(envelope)):
@@ -560,7 +561,7 @@ class Raster(Comparable):
         return self._nodata
 
     def ReadRaster(self, *args, **kwargs):
-        """Returns a string of raster data for partial or full extent.
+        """Returns raster data bytes for partial or full extent.
 
         Overrides gdal.Dataset.ReadRaster() with the full raster size by
         default.
