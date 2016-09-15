@@ -115,7 +115,8 @@ class RasterTestCase(RasterTestBase):
     def test_array(self):
         # Reading outside of raster extent is an error.
         self.assertRaises(ValueError, self.ds.array, (-100, 36, -96, 39))
-        arr = self.ds.array(self.bbox.GetEnvelope())
+        env = Envelope.from_geom(self.bbox).tuple
+        arr = self.ds.array(env)
         self.assertLess(arr.shape, self.ds.shape)
 
     def test_crop(self):
