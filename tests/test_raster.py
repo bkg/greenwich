@@ -159,6 +159,13 @@ class RasterTestCase(RasterTestBase):
             m = r.masked_array()
         self.assertLess(m.shape, self.ds.shape)
 
+    def test_clip_point(self):
+        point = self.bbox.Centroid()
+        point.AssignSpatialReference(self.ds.sref)
+        r = self.ds.clip(point)
+        self.assertEqual(r.array(), np.array([[1]]))
+        r.close()
+
     def test_clip_subpixel(self):
         """Test clipping a raster with a polygon smaller than a pixel."""
         # Create point at center of pixel (3, 3).

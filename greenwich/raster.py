@@ -529,7 +529,7 @@ class Raster(Comparable):
         affine.origin = env.ul
         # Without a simple envelope, this becomes a masking operation rather
         # than a crop.
-        if not geom.Equals(env.polygon):
+        if not geom.Equals(env.polygon) and geom.GetGeometryType() != ogr.wkbPoint:
             m = self.masked_array(env)
             # This will broadcast whereas np.ma.masked_array() does not.
             m.mask = geom_to_array(geom, dims, affine)
