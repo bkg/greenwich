@@ -76,8 +76,13 @@ def transform_mask(geom, to_sref):
     geom -- any coercible Geometry value or Envelope
     to_sref -- SpatialReference
     """
-    if isinstance(geom, Envelope):
-        geom = geom.polygon
+    # If we have an envelope, assume it's in the target sref.
+    try:
+        geom = getattr(geom, 'polygon', Envelope(geom).polygon)
+    except (TypeError, ValueError):
+        pass
+    else:
+        geom.AssignSpatialReference(to_sref)
     try:
         geom_sref = geom.GetSpatialReference()
     except AttributeError:
