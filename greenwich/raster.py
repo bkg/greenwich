@@ -451,7 +451,7 @@ class Raster(Comparable):
         Arguments:
         geom -- OGR Polygon or MultiPolygon
         """
-        return self._mask(geom)
+        return self._subset(geom)
 
     def crop(self, bbox):
         """Returns a new raster instance cropped to a bounding box.
@@ -459,10 +459,7 @@ class Raster(Comparable):
         Arguments:
         bbox -- bounding box as an OGR Polygon, Envelope, or tuple
         """
-        if isinstance(bbox, collections.Sequence):
-            bbox = Envelope(bbox).polygon
-            bbox.AssignSpatialReference(self.sref)
-        return self._mask(bbox)
+        return self._subset(bbox)
 
     @property
     def envelope(self):
@@ -524,37 +521,49 @@ class Raster(Comparable):
                 outband.SetColorTable(colors)
         return rcopy
 
-    def _mask(self, geom):
+    def _subset(self, geom):
         geom = transform_mask(geom, self.sref)
         env = Envelope.from_geom(geom).intersect(self.envelope)
         readargs = self.get_offset(env)
-        dims = readargs[2:4]
+        dims = readargs[2:]
         affine = AffineTransform(*tuple(self.affine))
         # Update origin coordinate for the new affine transformation.
         affine.origin = env.ul
-        # Without a simple envelope, this becomes a masking operation rather
-        # than a crop.
+        # Without a simple envelope, this becomes a masking operation.
         if not geom.Equals(env.polygon) and geom.GetGeometryType() != ogr.wkbPoint:
-            m = self.masked_array(env)
+            arr = self._masked(env)
             # This will broadcast whereas np.ma.masked_array() does not.
-            m.mask = geom_to_array(geom, dims, affine)
-            pixbuf = bytes(np.getbuffer(m.filled()))
+            arr.mask = geom_to_array(geom, dims, affine)
+            pixbuf = bytes(np.getbuffer(arr.filled()))
         else:
             pixbuf = self.ds.ReadRaster(*readargs)
         clone = self.new(dims + (len(self),), affine)
         clone.frombytes(pixbuf)
         return clone
 
-    def masked_array(self, envelope=()):
-        """Returns a MaskedArray using nodata values.
-
-        Keyword args:
-        envelope -- coordinate extent tuple or Envelope
-        """
+    def _masked(self, envelope=()):
         arr = self.array(envelope)
         if self.nodata is not None:
             return np.ma.masked_values(arr, self.nodata, copy=False)
-        return np.ma.masked_array(arr)
+        return np.ma.masked_array(arr, copy=False)
+
+    def masked_array(self, geometry=None):
+        """Returns a MaskedArray using nodata values.
+
+        Keyword args:
+        geometry -- any geometry, envelope, or coordinate extent tuple
+        """
+        if geometry is None:
+            return self._masked()
+        geom = transform_mask(geometry, self.sref)
+        env = Envelope.from_geom(geom).intersect(self.envelope)
+        arr = self._masked(env)
+        if geom.GetGeometryType() != ogr.wkbPoint:
+            dims = self.get_offset(env)[2:]
+            affine = AffineTransform(*tuple(self.affine))
+            affine.origin = env.ul
+            arr.mask = geom_to_array(geom, dims, affine)
+        return arr
 
     @property
     def nodata(self):
