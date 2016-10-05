@@ -75,6 +75,13 @@ class EnvelopeTestCase(unittest.TestCase):
         self.assertRaises(ValueError, Envelope, 'something')
         self.assertRaises(TypeError, Envelope, None)
 
+    def test_scale(self):
+        factor = .25
+        en2 = self.en * factor
+        self.assertEqual(en2.centroid, self.en.centroid)
+        self.assertEqual(en2.width, self.en.width * factor)
+        self.assertEqual(en2.height, self.en.height * factor)
+
 
 class GeometryTestCase(unittest.TestCase):
 

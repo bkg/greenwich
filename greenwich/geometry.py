@@ -53,11 +53,19 @@ class Envelope(Comparable):
     def __len__(self):
         return len(self.__dict__)
 
+    def __mul__(self, factor):
+        return self.scale(factor)
+
     def __repr__(self):
         return '<%s: %r>' % (self.__class__.__name__, self.tuple)
 
     def __sub__(self, other):
         return self.intersect(other)
+
+    @property
+    def centroid(self):
+        """Returns the envelope centroid as a (x, y) tuple."""
+        return self.min_x + self.width * 0.5, self.min_y + self.height * 0.5
 
     def contains(self, other):
         """Returns true if this envelope contains another.
@@ -141,13 +149,18 @@ class Envelope(Comparable):
     def lr(self, coord):
         self.max_x, self.min_y = coord
 
-    def scale(self, factor_x, factor_y=None):
-        """Returns a new envelope rescaled by the given factor(s)."""
-        factor_y = factor_x if factor_y is None else factor_y
-        w = self.width * factor_x / 2.0
-        h = self.height * factor_y / 2.0
-        return Envelope(self.min_x + w, self.min_y + h,
-                        self.max_x - w, self.max_y - h)
+    def scale(self, xfactor, yfactor=None):
+        """Returns a new envelope rescaled from center by the given factor(s).
+
+        Arguments:
+        xfactor -- int or float X scaling factor
+        yfactor -- int or float Y scaling factor
+        """
+        yfactor = xfactor if yfactor is None else yfactor
+        x, y = self.centroid
+        xshift = self.width * xfactor * 0.5
+        yshift = self.height * yfactor * 0.5
+        return Envelope(x - xshift, y - yshift, x + xshift, y + yshift)
 
     @property
     def polygon(self):
