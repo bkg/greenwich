@@ -83,7 +83,7 @@ class RasterTestCase(RasterTestBase):
     def setUp(self):
         super(RasterTestCase, self).setUp()
         # Shrink envelope
-        envelope = self.ds.envelope.scale(0.8)
+        envelope = self.ds.envelope.scale(0.2)
         self.bbox = envelope.polygon
         sref = SpatialReference(3857)
         self.bbox.AssignSpatialReference(sref)
@@ -160,9 +160,7 @@ class RasterTestCase(RasterTestBase):
         self.assertLess(m.shape, self.ds.shape)
 
     def test_clip_point(self):
-        point = self.bbox.Centroid()
-        point.AssignSpatialReference(self.ds.sref)
-        r = self.ds.clip(point)
+        r = self.ds.clip(self.point)
         self.assertEqual(r.array(), np.array([[1]]))
         r.close()
 
@@ -225,6 +223,14 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(*map(self.hexdigest, (rf2.ReadRaster(), b2)))
         rfloat.close()
         rf2.close()
+
+    def test_masked_array(self):
+        m = self.ds.masked_array(self.point)
+        self.assertEqual(m, np.ma.masked_array([[1]]))
+        extent = tuple(self.ds.envelope.scale(.25))
+        m = self.ds.masked_array(extent)
+        self.assertLess(m.shape, self.ds.shape)
+        self.assertEqual(m[-1,-1], 1)
 
     def test_save(self):
         ext = '.img'

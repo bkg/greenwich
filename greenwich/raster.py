@@ -446,7 +446,7 @@ class Raster(Comparable):
         self.closed = True
 
     def clip(self, geom):
-        """Returns a new raster instance clipped to a particular geometry.
+        """Returns a new Raster instance clipped and masked to a geometry.
 
         Arguments:
         geom -- OGR Polygon or MultiPolygon
@@ -524,21 +524,28 @@ class Raster(Comparable):
     def _subset(self, geom):
         geom = transform_mask(geom, self.sref)
         env = Envelope.from_geom(geom).intersect(self.envelope)
+        readargs = self.get_offset(env)
+        dims = readargs[2:]
         affine = AffineTransform(*tuple(self.affine))
         # Update origin coordinate for the new affine transformation.
         affine.origin = env.ul
         # Without an envelope or point, this becomes a masking operation.
         if not geom.Equals(env.polygon) and geom.GetGeometryType() != ogr.wkbPoint:
-            arr = self.masked_array(geom)
-            dims = arr.shape[::-1]
+            arr = self._masked_array(env)
+            # This will broadcast whereas np.ma.masked_array() does not.
+            arr.mask = geom_to_array(geom, dims, affine)
             pixbuf = bytes(buffer(arr.filled()))
         else:
-            readargs = self.get_offset(env)
-            dims = readargs[2:] + (len(self),)
             pixbuf = self.ds.ReadRaster(*readargs)
-        clone = self.new(dims, affine)
+        clone = self.new(dims + (len(self),), affine)
         clone.frombytes(pixbuf)
         return clone
+
+    def _masked_array(self, envelope=()):
+        arr = self.array(envelope)
+        if self.nodata is not None:
+            return np.ma.masked_values(arr, self.nodata, copy=False)
+        return np.ma.masked_array(arr, copy=False)
 
     def masked_array(self, geometry=None):
         """Returns a MaskedArray using nodata values.
@@ -546,24 +553,16 @@ class Raster(Comparable):
         Keyword args:
         geometry -- any geometry, envelope, or coordinate extent tuple
         """
-        env = None
-        mask = None
-        if geometry:
-            geom = transform_mask(geometry, self.sref)
-            env = Envelope.from_geom(geom).intersect(self.envelope)
-            if geom.GetGeometryType() != ogr.wkbPoint:
-                dims = self.get_offset(env)[2:]
-                affine = AffineTransform(*tuple(self.affine))
-                affine.origin = env.ul
-                # This will broadcast whereas np.ma.masked_array() does not.
-                mask = geom_to_array(geom, dims, affine)
-        a = self.array(env)
-        if self.nodata is not None:
-            arr = np.ma.masked_values(a, self.nodata, copy=False)
-        else:
-            arr = np.ma.masked_array(a, copy=False)
-        if mask is not None:
-            arr.mask = mask
+        if geometry is None:
+            return self._masked_array()
+        geom = transform_mask(geometry, self.sref)
+        env = Envelope.from_geom(geom).intersect(self.envelope)
+        arr = self._masked_array(env)
+        if geom.GetGeometryType() != ogr.wkbPoint:
+            dims = self.get_offset(env)[2:]
+            affine = AffineTransform(*tuple(self.affine))
+            affine.origin = env.ul
+            arr.mask = geom_to_array(geom, dims, affine)
         return arr
 
     @property
