@@ -54,8 +54,8 @@ class AffineTransformTestCase(unittest.TestCase):
         expected = [(0, 0), (-1, 0)]
         self.assertEqual(self.affine.transform(inputs), expected)
 
-    def test_transform_to_projected(self):
-        coord = tuple(self.affine.transform_to_projected(((0, 0),)))
+    def test_project(self):
+        coord = tuple(self.affine.project(((0, 0),)))
         expected = ((-119.0, 37.0),)
         self.assertEqual(coord, expected)
 
@@ -95,6 +95,8 @@ class RasterTestCase(RasterTestBase):
             '{"type":"Polygon","coordinates":'
             '[[[-123,47],[-123,48],[-122,49],[-121,48],[-121,47],[-123,47]]]}')
         self.geom.AssignSpatialReference(sref_4326)
+        self.point = self.bbox.Centroid()
+        self.point.AssignSpatialReference(self.ds.sref)
 
     def test_nodata(self):
         self.assertEqual(self.ds.nodata, 0)

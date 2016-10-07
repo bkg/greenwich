@@ -132,7 +132,7 @@ class AffineTransform(Comparable):
     def __repr__(self):
         return '<%s %r>' % (self.__class__.__name__, self.tuple)
 
-    def transform_to_projected(self, coords):
+    def project(self, coords):
         """Convert image pixel/line coordinates to georeferenced x/y, return a
         generator of two-tuples.
 
