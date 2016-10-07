@@ -1,4 +1,21 @@
 import math
+import itertools
+
+from greenwich.geometry import Envelope
+
+def from_bbox(bbox, zlevs):
+    """Yields tile (x, y, z) tuples for a bounding box and zoom levels.
+
+    Arguments:
+    bbox - bounding box as a 4-length sequence
+    zlevs - sequence of tile zoom levels
+    """
+    env = Envelope(bbox)
+    for z in zlevs:
+        corners = [to_tile(*coord + (z,)) for coord in env.ul, env.lr]
+        xs, ys = [range(p1, p2 + 1) for p1, p2 in zip(*corners)]
+        for coord in itertools.product(xs, ys, (z,)):
+            yield coord
 
 def to_lonlat(xtile, ytile, zoom):
     """Returns a tuple of (longitude, latitude) from a map tile xyz coordinate.
