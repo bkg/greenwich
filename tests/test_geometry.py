@@ -4,7 +4,7 @@ import unittest
 
 from osgeo import ogr
 
-from greenwich.geometry import Envelope, Geometry
+from greenwich.geometry import transform, Envelope, Geometry
 from greenwich.srs import SpatialReference
 
 # Test geometry objects with 'wkb' attr from GeoDjango, Shapely.
@@ -87,8 +87,8 @@ class GeometryTestCase(unittest.TestCase):
 
     def setUp(self):
         self.gdict = {'type': 'Polygon',
-                      'coordinates': [[[-123,47],[-123,48],[-122,49],
-                                       [-121,48],[-121,47],[-123,47]]]}
+                      'coordinates': [[[-123, 47],[-123, 48],[-122, 49],
+                                       [-121, 48],[-121, 47],[-123, 47]]]}
         self.geom = Geometry(self.gdict, srs=4326)
 
     def test_geo_interface(self):
@@ -123,3 +123,8 @@ class GeometryTestCase(unittest.TestCase):
         self.assertEqual(geom.GetSpatialReference(), sref)
         geom = Geometry(self.gdict, srs=sref)
         self.assertEqual(geom.GetSpatialReference(), sref)
+
+    def test_transform_mask(self):
+        sref = SpatialReference(3857)
+        tr = transform(self.geom.ExportToWkb(), sref)
+        self.assertEqual(tr.GetSpatialReference(), sref)

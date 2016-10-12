@@ -9,8 +9,7 @@ import numpy as np
 from osgeo import gdal, ogr, osr
 
 from greenwich.raster import (ImageDriver, Raster, AffineTransform,
-    count_unique, driver_for_path, geom_to_array, frombytes,
-    open as ropen, transform_mask)
+    count_unique, driver_for_path, geom_to_array, frombytes, open as ropen)
 from greenwich.io import MemFileIO, VSIFile
 from greenwich.geometry import Envelope
 from greenwich.srs import SpatialReference
@@ -104,11 +103,6 @@ class RasterTestCase(RasterTestBase):
     def test_envelope(self):
         # Need to verify upper right and lower left pairs
         self.assertIsInstance(self.ds.envelope, Envelope)
-
-    def test_transform_mask(self):
-        sref = SpatialReference(3857)
-        tr = transform_mask(self.geom.ExportToWkb(), sref)
-        self.assertEqual(tr.GetSpatialReference(), sref)
 
     def hexdigest(self, s):
         return hashlib.md5(s).hexdigest()

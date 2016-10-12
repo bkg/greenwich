@@ -10,7 +10,7 @@ from osgeo import gdal, gdalconst, ogr
 
 from greenwich.base import Comparable
 from greenwich.io import MemFileIO, vsiprefix
-from greenwich.geometry import Envelope, Geometry
+from greenwich.geometry import transform, Envelope
 from greenwich.srs import SpatialReference
 
 def available_drivers():
@@ -68,32 +68,6 @@ def count_unique(arr):
     arr -- numpy ndarray
     """
     return zip(*np.unique(arr, return_counts=True))
-
-def transform_mask(geom, to_sref):
-    """Returns a transformed mask as a Geometry.
-
-    Arguments:
-    geom -- any coercible Geometry value or Envelope
-    to_sref -- SpatialReference
-    """
-    # If we have an envelope, assume it's in the target sref.
-    try:
-        geom = getattr(geom, 'polygon', Envelope(geom).polygon)
-    except (TypeError, ValueError):
-        pass
-    else:
-        geom.AssignSpatialReference(to_sref)
-    try:
-        geom_sref = geom.GetSpatialReference()
-    except AttributeError:
-        return transform_mask(Geometry(geom), to_sref)
-    if geom_sref is None:
-        raise Exception('Cannot transform from unknown spatial reference')
-    # Reproject geom if necessary
-    if not geom_sref.IsSame(to_sref):
-        geom = geom.Clone()
-        geom.TransformTo(to_sref)
-    return geom
 
 
 class AffineTransform(Comparable):
@@ -522,7 +496,7 @@ class Raster(Comparable):
         return rcopy
 
     def _subset(self, geom):
-        geom = transform_mask(geom, self.sref)
+        geom = transform(geom, self.sref)
         env = Envelope.from_geom(geom).intersect(self.envelope)
         readargs = self.get_offset(env)
         dims = readargs[2:]
@@ -555,7 +529,7 @@ class Raster(Comparable):
         """
         if geometry is None:
             return self._masked_array()
-        geom = transform_mask(geometry, self.sref)
+        geom = transform(geometry, self.sref)
         env = Envelope.from_geom(geom).intersect(self.envelope)
         arr = self._masked_array(env)
         if geom.GetGeometryType() != ogr.wkbPoint:

@@ -7,6 +7,32 @@ except ImportError:
 from greenwich.base import Comparable
 from greenwich.srs import SpatialReference
 
+def transform(geom, to_sref):
+    """Returns a transformed Geometry.
+
+    Arguments:
+    geom -- any coercible Geometry value or Envelope
+    to_sref -- SpatialReference
+    """
+    # If we have an envelope, assume it's in the target sref.
+    try:
+        geom = getattr(geom, 'polygon', Envelope(geom).polygon)
+    except (TypeError, ValueError):
+        pass
+    else:
+        geom.AssignSpatialReference(to_sref)
+    try:
+        geom_sref = geom.GetSpatialReference()
+    except AttributeError:
+        return transform(Geometry(geom), to_sref)
+    if geom_sref is None:
+        raise Exception('Cannot transform from unknown spatial reference')
+    # Reproject geom if necessary
+    if not geom_sref.IsSame(to_sref):
+        geom = geom.Clone()
+        geom.TransformTo(to_sref)
+    return geom
+
 
 class Envelope(Comparable):
     """Rectangular bounding extent.
