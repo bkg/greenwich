@@ -1,7 +1,7 @@
 import unittest
 from osgeo import osr
 
-from greenwich.srs import SpatialReference, transform_lonlat, transform_tile
+from greenwich.srs import SpatialReference
 
 
 class SpatialReferenceTestCase(unittest.TestCase):
@@ -40,15 +40,3 @@ class SpatialReferenceTestCase(unittest.TestCase):
     def test_equality(self):
         self.assertEqual(SpatialReference(3857), SpatialReference(3857))
         self.assertNotEqual(SpatialReference(4326), SpatialReference(3857))
-
-
-class TransformTileTestCase(unittest.TestCase):
-    def test_transform(self):
-        self.assertAlmostEqual(transform_tile(553, 346, 10),
-                               (14.4140625, 50.28933925329178))
-
-    def test_transform_lonlat(self):
-        self.assertAlmostEqual(transform_lonlat(-115.4, 46.6, 6), (11, 22))
-
-    def test_invalid_tile(self):
-        self.assertRaises(ValueError, transform_tile, 1000, 1000, 3)
