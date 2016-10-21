@@ -73,21 +73,21 @@ def count_unique(arr):
 class AffineTransform(Comparable):
     """Affine transformation between projected and pixel coordinate spaces."""
 
-    def __init__(self, ul_x, scale_x, rx, ul_y, ry, scale_y):
+    def __init__(self, xorigin, xscale, rx, yorigin, ry, yscale):
         """Generally this will be initialized from a six-element tuple in the
         format returned by gdal.Dataset.GetGeoTransform().
 
         Arguments:
-        ul_x -- top left corner x coordinate
-        scale_x -- x scaling
+        xorigin -- top left corner x coordinate
+        xscale -- x scaling
         rx -- x rotation
-        ul_y -- top left corner y coordinate
+        yorigin -- top left corner y coordinate
         ry -- y rotation
-        scale_y -- y scaling
+        yscale -- y scaling
         """
         # Origin coordinate in projected space.
-        self.origin = (ul_x, ul_y)
-        self.scale = (scale_x, scale_y)
+        self.origin = (xorigin, yorigin)
+        self.scale = (xscale, yscale)
         # Rotation in X and Y directions. (0, 0) is north up.
         self.rotation = (rx, ry)
         # Avoid repeated calls to tuple() by iterators and slices.
@@ -646,19 +646,19 @@ class Raster(Comparable):
         vrt = None
         if dest is None:
             imgio = MemFileIO()
-            newrast = self.driver.raster(imgio, warpsize, dtype)
+            rwarp = self.driver.raster(imgio, warpsize, dtype)
             imgio.close()
         else:
-            newrast = self.driver.raster(dest, warpsize, dtype)
-        newrast.SetGeoTransform(warptrans)
-        newrast.SetProjection(to_sref)
+            rwarp = self.driver.raster(dest, warpsize, dtype)
+        rwarp.SetGeoTransform(warptrans)
+        rwarp.SetProjection(to_sref)
         if self.nodata is not None:
-            for band in newrast:
+            for band in rwarp:
                 band.SetNoDataValue(self.nodata)
                 band = None
-        # Uses self and newrast projection when set to None
-        gdal.ReprojectImage(self.ds, newrast.ds, None, None, interpolation)
-        return newrast
+        # Uses self and rwarp projection when set to None
+        gdal.ReprojectImage(self.ds, rwarp.ds, None, None, interpolation)
+        return rwarp
 
 
 def open(path, mode=gdalconst.GA_ReadOnly):
