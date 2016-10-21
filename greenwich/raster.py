@@ -536,7 +536,7 @@ class Raster(Comparable):
             dims = self.get_offset(env)[2:]
             affine = AffineTransform(*tuple(self.affine))
             affine.origin = env.ul
-            arr.mask = geom_to_array(geom, dims, affine)
+            arr.mask = arr.mask | geom_to_array(geom, dims, affine)
         return arr
 
     @property
