@@ -12,7 +12,7 @@ def from_bbox(bbox, zlevs):
     """
     env = Envelope(bbox)
     for z in zlevs:
-        corners = [to_tile(*coord + (z,)) for coord in env.ul, env.lr]
+        corners = [to_tile(*coord + (z,)) for coord in (env.ul, env.lr)]
         xs, ys = [range(p1, p2 + 1) for p1, p2 in zip(*corners)]
         for coord in itertools.product(xs, ys, (z,)):
             yield coord

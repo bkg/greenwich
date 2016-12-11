@@ -1,5 +1,6 @@
 """GDAL IO handling"""
 from __future__ import absolute_import
+
 import os
 try:
     from urllib.parse import urlparse
@@ -63,11 +64,12 @@ class VSIFile(object):
         self._check_closed()
         return self
 
-    def next(self):
+    def __next__(self):
         line = self.readline()
         if not line:
             raise StopIteration
         return line
+    next = __next__
 
     def __repr__(self):
         status = 'closed' if self.closed else 'open'

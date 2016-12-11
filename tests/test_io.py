@@ -1,3 +1,5 @@
+from __future__ import division
+
 import os
 import tempfile
 import unittest
@@ -12,7 +14,7 @@ class MemFileIOTestCase(unittest.TestCase):
     def setUp(self):
         self.imgio = MemFileIO()
         vsif = gdal.VSIFOpenL(self.imgio.name, 'wb')
-        self.data = '0123'
+        self.data = b'0123'
         gdal.VSIFWriteL(self.data, 1, len(self.data), vsif)
 
     def test_close(self):
@@ -51,7 +53,7 @@ class MemFileIOTestCase(unittest.TestCase):
         self.assertEqual(self.imgio.tell(), len(self.data))
 
     def test_readinto(self):
-        size = len(self.data) / 2
+        size = len(self.data) // 2
         b = bytearray(size)
         self.imgio.readinto(b)
         self.assertEqual(bytes(b), self.data[:size])
@@ -66,7 +68,7 @@ class MemFileIOTestCase(unittest.TestCase):
 
     def test_write(self):
         memio = MemFileIO()
-        data = '56789'
+        data = b'56789'
         memio.write(data)
         memio.seek(0)
         self.assertEqual(memio.read(), data)
@@ -95,18 +97,18 @@ class VSIFileTestCase(unittest.TestCase):
             os.unlink(name)
 
     def test_read_missing(self):
-        self.assertRaises(IOError, VSIFile, 'missing.zyx', 'rb')
+        self.assertRaises(IOError, VSIFile, b'missing.zyx', 'rb')
 
     def test_write_error(self):
         fname = '/vsimem/a.tif'
-        data = '0123'
+        data = b'0123'
         with VSIFile(fname, 'w+b') as vsif:
             self.assertTrue(vsif.writable())
             vsif.write(data)
         vsifr = VSIFile(fname, 'rb')
         self.assertEqual(vsifr.read(), data)
         try:
-            self.assertRaises(IOError, vsifr.write, '0123')
+            self.assertRaises(IOError, vsifr.write, data)
         finally:
             vsifr.close()
             gdal.Unlink(fname)

@@ -1,3 +1,5 @@
+from __future__ import division
+
 from osgeo import ogr
 try:
     import simplejson as json
@@ -12,7 +14,7 @@ def transform(geom, to_sref):
 
     Arguments:
     geom -- any coercible Geometry value or Envelope
-    to_sref -- SpatialReference
+    to_sref -- SpatialReference or EPSG ID as int
     """
     # If we have an envelope, assume it's in the target sref.
     try:
@@ -50,7 +52,7 @@ class Envelope(Comparable):
         if len(args) == 1:
             args = args[0]
         try:
-            extent = map(float, args)
+            extent = list(map(float, args))
         except (TypeError, ValueError) as exc:
             exc.args = ('Cannot create Envelope from "%s"' % repr(args),)
             raise
@@ -116,7 +118,7 @@ class Envelope(Comparable):
         """
         if len(other) == 2:
             other += other
-        mid = len(other) / 2
+        mid = len(other) // 2
         self.ll = map(min, self.ll, other[:mid])
         self.ur = map(max, self.ur, other[mid:])
 
@@ -134,7 +136,7 @@ class Envelope(Comparable):
         """Returns the intersection of this and another Envelope."""
         inter = Envelope(tuple(self))
         if inter.intersects(other):
-            mid = len(other) / 2
+            mid = len(other) // 2
             inter.ll = map(max, inter.ll, other[:mid])
             inter.ur = map(min, inter.ur, other[mid:])
         else:

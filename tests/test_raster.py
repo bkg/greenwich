@@ -1,3 +1,5 @@
+from __future__ import division
+
 import os
 import glob
 import hashlib
@@ -77,7 +79,7 @@ class RasterTestBase(unittest.TestCase):
 
 class RasterTestCase(RasterTestBase):
     """Test Raster class."""
-    img_header = 'EHFA_HEADER_TAG'
+    img_header = b'EHFA_HEADER_TAG'
 
     def setUp(self):
         super(RasterTestCase, self).setUp()
@@ -149,7 +151,7 @@ class RasterTestCase(RasterTestBase):
         # First element should be masked.
         self.assertEqual(arr[0,0], multiband.nodata)
         # Center element should be unmasked.
-        center = (arr.shape[0] / 2, arr.shape[1] / 2)
+        center = (arr.shape[0] // 2, arr.shape[1] // 2)
         self.assertEqual(arr[center], 1)
         with self.ds.clip(self.bbox) as r:
             m = r.masked_array()
@@ -294,7 +296,7 @@ class RasterTestCase(RasterTestBase):
 
     def test_count_unique(self):
         a = np.array([(0, 1), (0, 2)])
-        self.assertEqual(count_unique(a), [(0, 2), (1, 1), (2, 1)])
+        self.assertEqual(list(count_unique(a)), [(0, 2), (1, 1), (2, 1)])
 
     def test_warp(self):
         epsg_id = 4326
@@ -317,7 +319,7 @@ class RasterTestCase(RasterTestBase):
     def test_resample(self):
         # Half the original resolution
         factor = 2
-        size = tuple([i / factor for i in self.ds.size])
+        size = tuple([i // factor for i in self.ds.size])
         output = self.ds.resample(size)
         self.assertEqual(output.size, size)
         self.assertEqual(output.affine.scale,
@@ -329,7 +331,7 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(dcopy.shape, self.ds.shape)
         self.assertNotEqual(dcopy, self.ds)
         # Reduced size withouth pixel data.
-        size = tuple([x / 10 for x in self.ds.size])
+        size = tuple([x // 10 for x in self.ds.size])
         dsmall = self.ds.new(size=size)
         self.assertEqual(dsmall.size, size)
 
@@ -357,7 +359,7 @@ class RasterTestCase(RasterTestBase):
             with VSIFile(r.name) as vsif:
                 imgdata = vsif.read()
         self.assertEqual(imgdata, bio.getvalue())
-        self.assertRaises(IOError, ropen, BytesIO('0123'))
+        self.assertRaises(IOError, ropen, BytesIO(b'0123'))
 
 
 class ImageDriverTestCase(RasterTestBase):

@@ -1,4 +1,6 @@
 """Raster data handling"""
+from __future__ import division
+
 import os
 import collections
 import math
@@ -163,7 +165,7 @@ class ImageDriver(object):
         driver -- str gdal.Driver name like 'GTiff' or gdal.Driver instance
         kwargs -- GDAL raster creation options
         """
-        if isinstance(driver, basestring):
+        if hasattr(driver, 'format'):
             driver = gdal.GetDriverByName(str(driver)) or driver
         if not isinstance(driver, gdal.Driver):
             raise TypeError('No GDAL driver for %s' % driver)
@@ -508,7 +510,7 @@ class Raster(Comparable):
             arr = self._masked_array(env)
             # This will broadcast whereas np.ma.masked_array() does not.
             arr.mask = geom_to_array(geom, dims, affine)
-            pixbuf = bytes(buffer(arr.filled()))
+            pixbuf = bytes(arr.filled().data)
         else:
             pixbuf = self.ds.ReadRaster(*readargs)
         clone = self.new(dims + (len(self),), affine)
@@ -583,9 +585,9 @@ class Raster(Comparable):
         driver -- GDAL driver name as string or ImageDriver
         """
         path = getattr(to, 'name', to)
-        if not driver and isinstance(path, basestring):
+        if not driver and isinstance(path, str):
             driver = driver_for_path(path, self.driver.filter_copyable())
-        elif isinstance(driver, basestring):
+        elif isinstance(driver, str):
             driver = ImageDriver(driver)
         if driver is None or not driver.copyable:
             raise ValueError('Copy supporting driver not found for %s' % path)
