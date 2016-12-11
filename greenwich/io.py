@@ -1,7 +1,10 @@
 """GDAL IO handling"""
 from __future__ import absolute_import
 import os
-from urlparse import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 import uuid
 
 from osgeo import gdal
