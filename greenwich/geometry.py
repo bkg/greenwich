@@ -247,13 +247,17 @@ def Geometry(*args, **kwargs):
     if hasattr(arg, 'keys'):
         geom = ogr.CreateGeometryFromJson(json.dumps(arg))
     elif hasattr(arg, 'startswith'):
-        if arg.startswith('{'):
-            geom = ogr.CreateGeometryFromJson(arg)
         # WKB as hexadecimal string.
-        elif ord(arg[0]) in [0, 1]:
+        char = arg[0] if arg else ' '
+        i = char if isinstance(char, int) else ord(char)
+        if i in (0, 1):
             geom = ogr.CreateGeometryFromWkb(arg)
+        elif arg.startswith('{'):
+            geom = ogr.CreateGeometryFromJson(arg)
         elif arg.startswith('<gml'):
             geom = ogr.CreateGeometryFromGML(arg)
+        else:
+            raise ValueError('Invalid geometry value: %s' % arg)
     elif hasattr(arg, 'wkb'):
         geom = ogr.CreateGeometryFromWkb(bytes(arg.wkb))
     else:

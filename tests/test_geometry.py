@@ -116,6 +116,9 @@ class GeometryTestCase(unittest.TestCase):
         wg = WKBGeom(wkb)
         self.assertEqual(Geometry(wg).ExportToWkb(), wkb)
 
+    def test_init_error(self):
+        self.assertRaises(ValueError, Geometry, '')
+
     def test_init_spatialref(self):
         epsg_id = 4326
         sref = SpatialReference(epsg_id)
