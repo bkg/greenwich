@@ -1,6 +1,7 @@
 language: python
 python:
   - 2.7
+  - 3.5
 
 env:
   - CFLAGS=-I/usr/include/gdal
@@ -10,7 +11,7 @@ before_install:
   - sudo apt-get -qq update
   - sudo apt-get -y install libgdal-dev libgdal1h gdal-bin
 
-install: 
+install:
   - pip install -r requirements.txt
   - pip install coveralls
 
