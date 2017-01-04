@@ -585,9 +585,9 @@ class Raster(Comparable):
         driver -- GDAL driver name as string or ImageDriver
         """
         path = getattr(to, 'name', to)
-        if not driver and hasattr(path, 'format'):
+        if not driver and hasattr(path, 'encode'):
             driver = driver_for_path(path, self.driver.filter_copyable())
-        elif hasattr(driver, 'format'):
+        elif hasattr(driver, 'encode'):
             driver = ImageDriver(driver)
         if driver is None or not driver.copyable:
             raise ValueError('Copy supporting driver not found for %s' % path)
