@@ -53,11 +53,11 @@ def geom_to_array(geom, size, affine):
     background = 1
     img = Image.new('L', size, background)
     draw = ImageDraw.Draw(img)
+    if geom.GetCoordinateDimension() > 2:
+        geom.FlattenTo2D()
     if geom.GetGeometryType() == ogr.wkbPolygon:
         geom = [geom]
     for polygon in geom:
-        if polygon.GetCoordinateDimension() > 2:
-            polygon.FlattenTo2D()
         fills = (0,) + (background,) * polygon.GetGeometryCount()
         for ring, fill in zip(polygon, fills):
             draw.polygon(affine.transform(ring.GetPoints()), fill)

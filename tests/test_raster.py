@@ -293,6 +293,29 @@ class RasterTestCase(RasterTestBase):
         x, y = self.ds.affine.transform(point.GetPoints())[0]
         # Pixel within island should use the background color.
         self.assertEqual(arr[y,x], 1)
+        p2 = make_point(self.ds.affine.origin)
+        poly2 = ogr.Geometry(ogr.wkbMultiPolygon25D)
+        poly2.AssignSpatialReference(self.ds.sref)
+        for p in point, p2:
+            pb = p.Buffer(self.ds.affine.scale[0])
+            poly2.AddGeometry(pb)
+        poly2.SetCoordinateDimension(3)
+        self.assertEqual(poly2.GetCoordinateDimension(), 3)
+        arr2 = geom_to_array(poly2, self.ds.size, self.ds.affine)
+        idx = np.where(arr2 == 0)
+        with self.ds.clip(poly2) as clip:
+            m = clip.masked_array()
+        for a, b in zip(np.where(~m.mask), idx):
+            self.assertEqual(a.tolist(), b.tolist())
+
+    def test_geom3d_to_array(self):
+        poly = self.point.Buffer(self.ds.affine.scale[0])
+        poly.AssignSpatialReference(self.ds.sref)
+        poly.SetCoordinateDimension(3)
+        self.assertEqual(poly.GetCoordinateDimension(), 3)
+        self.assertEqual(poly.GetGeometryType(), ogr.wkbPolygon25D)
+        arr = geom_to_array(poly, self.ds.size, self.ds.affine)
+        self.assertEqual((arr.min(), arr.max()), (0, 1))
 
     def test_count_unique(self):
         a = np.array([(0, 1), (0, 2)])
