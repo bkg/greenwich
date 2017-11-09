@@ -11,9 +11,10 @@ import numpy as np
 from osgeo import gdal, ogr, osr
 
 from greenwich.raster import (ImageDriver, Raster, AffineTransform,
-    count_unique, driver_for_path, geom_to_array, frombytes, open as ropen)
+    count_unique, driver_for_path, rasterize, geom_to_array, frombytes, open as ropen)
 from greenwich.io import MemFileIO, VSIFile
 from greenwich.geometry import Envelope
+from greenwich.layer import MemoryLayer
 from greenwich.srs import SpatialReference
 
 def create_gdal_datasource(fname=None, dtype=np.ubyte, bands=1):
@@ -316,6 +317,28 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(poly.GetGeometryType(), ogr.wkbPolygon25D)
         arr = geom_to_array(poly, self.ds.size, self.ds.affine)
         self.assertEqual((arr.min(), arr.max()), (0, 1))
+
+    def test_rasterize_geom(self):
+        geom = self.geom.Clone()
+        geom.TransformTo(self.ds.sref)
+        point = geom.Centroid()
+        point.AssignSpatialReference(self.ds.sref)
+        poly = point.Buffer(self.ds.affine.scale[0])
+        # Create "island" polygon to test interior and exterior rings.
+        gdiff = geom.Difference(poly)
+        mpoly = ogr.Geometry(ogr.wkbMultiPolygon)
+        mpoly.AssignSpatialReference(self.ds.sref)
+        mpoly.AddGeometry(gdiff)
+        for g in geom, gdiff, mpoly:
+            layer = MemoryLayer.from_records([(1, g)])
+            arr = rasterize(layer, self.ds).array()
+            self.assertEqual(arr.shape, self.ds.shape)
+            self.assertEqual((arr.min(), arr.max()), (0, 1))
+            layer.close()
+        x, y = self.ds.affine.transform(point.GetPoints())[0]
+        # Pixel within island should use the background color.
+        self.assertEqual(arr[y,x], 0)
+        self.assertEqual(arr[-1,0], 1)
 
     def test_count_unique(self):
         a = np.array([(0, 1), (0, 2)])

@@ -13,6 +13,7 @@ from osgeo import gdal, gdalconst, ogr
 from greenwich.base import Comparable
 from greenwich.io import MemFileIO, vsiprefix
 from greenwich.geometry import transform, Envelope
+from greenwich.layer import MemoryLayer
 from greenwich.srs import SpatialReference
 
 def available_drivers():
@@ -62,6 +63,28 @@ def geom_to_array(geom, size, affine):
         for ring, fill in zip(polygon, fills):
             draw.polygon(affine.transform(ring.GetPoints()), fill)
     return np.asarray(img)
+
+def rasterize(layer, rast):
+    """Returns a Raster from layer features.
+
+    Arguments:
+    layer -- Layer to rasterize
+    rast -- Raster for affine, size, and sref
+    """
+    driver = ImageDriver('MEM')
+    r2 = driver.raster(driver.ShortName, rast.size)
+    r2.affine = rast.affine
+    sref = rast.sref
+    if not sref.srid:
+        sref = SpatialReference(4326)
+    r2.sref = sref
+    ml = MemoryLayer.copy(layer)
+    if not sref.IsSame(ml.GetSpatialRef()):
+        ml.transform(sref)
+    status = gdal.RasterizeLayer(
+        r2.ds, (1,), ml.layer, options=['ATTRIBUTE=%s' % ml.id])
+    ml.close()
+    return r2
 
 def count_unique(arr):
     """Returns a list of two-tuples with unique value and occurrence count.
