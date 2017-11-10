@@ -57,16 +57,14 @@ class MemoryLayer(object):
 
     def load(self, layer):
         defn = self.GetLayerDefn()
+        sref = self.GetSpatialRef()
+        srs_match = sref.IsSame(layer.GetSpatialRef())
         for feat in layer:
             feature = ogr.Feature(defn)
             g = feat.geometry()
+            if not srs_match:
+                g.TransformTo(sref)
             feature.SetGeometry(g)
             feature.SetField(self.id, feat.GetFID())
             self.layer.CreateFeature(feature)
             feature.Destroy()
-
-    def transform(self, sref):
-        for feature in self:
-            geom = feature.geometry()
-            geom.TransformTo(sref)
-            feature.SetGeometry(geom)

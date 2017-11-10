@@ -78,9 +78,8 @@ def rasterize(layer, rast):
     if not sref.srid:
         sref = SpatialReference(4326)
     r2.sref = sref
-    ml = MemoryLayer.copy(layer)
-    if not sref.IsSame(ml.GetSpatialRef()):
-        ml.transform(sref)
+    ml = MemoryLayer(sref, layer.GetGeomType())
+    ml.load(layer)
     status = gdal.RasterizeLayer(
         r2.ds, (1,), ml.layer, options=['ATTRIBUTE=%s' % ml.id])
     ml.close()
