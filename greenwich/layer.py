@@ -19,7 +19,7 @@ class MemoryLayer(object):
         return getattr(self.layer, attr)
 
     def __getitem__(self, index):
-        return self.layer[index]
+        return self.layer.GetFeature(index)
 
     def __iter__(self):
         for feature in self.layer:
@@ -33,7 +33,8 @@ class MemoryLayer(object):
         return True
 
     def close(self):
-        self.ds.Destroy()
+        # Close the DataSource and free memory.
+        self.ds = None
 
     @classmethod
     def copy(cls, layer):
