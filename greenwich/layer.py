@@ -28,6 +28,9 @@ class MemoryLayer(object):
     def __len__(self):
         return self.layer.GetFeatureCount()
 
+    def __enter__(self):
+        return self
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
         return True
@@ -46,9 +49,9 @@ class MemoryLayer(object):
     def from_records(cls, records):
         geom = records[0][1]
         obj = cls(geom.GetSpatialReference(), geom.GetGeometryType())
-        featdef = obj.GetLayerDefn()
+        defn = obj.GetLayerDefn()
         for record in records:
-            feature = ogr.Feature(featdef)
+            feature = ogr.Feature(defn)
             feature.SetFID(record[0])
             feature.SetField(obj.id, record[0])
             feature.SetGeometry(record[1])
@@ -58,13 +61,16 @@ class MemoryLayer(object):
 
     def load(self, layer):
         defn = self.GetLayerDefn()
-        sref = self.GetSpatialRef()
-        srs_match = sref.IsSame(layer.GetSpatialRef())
+        to_sref = self.GetSpatialRef()
+        from_sref = layer.GetSpatialRef()
+        if not to_sref or not from_sref:
+            raise TypeError('Layer must have SpatialReference set')
+        srs_match = to_sref.IsSame(from_sref)
         for feat in layer:
             feature = ogr.Feature(defn)
             g = feat.geometry()
             if not srs_match:
-                g.TransformTo(sref)
+                g.TransformTo(to_sref)
             feature.SetGeometry(g)
             feature.SetField(self.id, feat.GetFID())
             self.layer.CreateFeature(feature)
