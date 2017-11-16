@@ -324,6 +324,10 @@ class RasterTestCase(RasterTestBase):
         geom.TransformTo(self.ds.sref)
         point = geom.Centroid()
         point.AssignSpatialReference(self.ds.sref)
+        line = ogr.Geometry(ogr.wkbLineString)
+        line.AssignSpatialReference(self.ds.sref)
+        line.AddPoint(*self.ds.envelope.ll)
+        line.AddPoint(*self.ds.envelope.ur)
         poly = point.Buffer(self.ds.affine.scale[0])
         # Create "island" polygon to test interior and exterior rings.
         gdiff = geom.Difference(poly)
@@ -331,7 +335,7 @@ class RasterTestCase(RasterTestBase):
         mpoly = ogr.Geometry(ogr.wkbMultiPolygon)
         mpoly.AssignSpatialReference(self.ds.sref)
         mpoly.AddGeometry(gdiff)
-        for g in g1, gdiff, mpoly:
+        for g in g1, line, gdiff, mpoly:
             layer = MemoryLayer.from_records([(1, g)])
             arr = rasterize(layer, self.ds).array()
             self.assertEqual(arr.shape, self.ds.shape)
