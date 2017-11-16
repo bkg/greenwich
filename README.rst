@@ -26,7 +26,7 @@ Basic Usage
 -----------
 
 Open any raster data set you have lying around, perhaps some climate data from
-`WorldClim <http://worldclim.org/CMIP5>`_.
+`WorldClim <http://worldclim.org/>`_.
 
 .. code-block:: python
 
@@ -43,7 +43,7 @@ Open any raster data set you have lying around, perhaps some climate data from
         with tmax.clip(geom) as clipped:
             clipped.save('clipped.tif')
 
-        # Return a NumPy MaskedArray using no data values for a given bounding box.
+        # Return a NumPy MaskedArray using nodata values for a given bounding box.
         m = tmax.masked_array((-120, 38, -118, 44))
 
         # Convert to an Erdas Imagine file in memory.
@@ -60,7 +60,7 @@ Retrieve a NumPy array for a specific area by providing the extent as a 4-tuple 
     arr = tmax.array((-120, 38, -118, 44))
 
 Reproject the raster to another coordinate system. You may pass EPSG codes, WKT,
-proj4 formatted projections, or a SpatialReference instance as an argument.::
+proj4 formatted projections, or a SpatialReference instance as an argument::
 
     warped = tmax.warp(3857)
 
@@ -69,6 +69,6 @@ achieved with::
 
     resampled = tmax.resample((100, 100))
 
-Raster instances still behave like a gdal.Dataset.::
+Raster instances still behave like a gdal.Dataset::
 
     meta = tmax.GetMetadata()
