@@ -6,7 +6,7 @@ except ImportError:
     from distutils.core import setup
 
 setup(name='greenwich',
-      version='0.7.1',
+      version='0.8.0',
       description='A GDAL wrapper with Python conveniences',
       long_description=open('README.rst').read(),
       author='Brian Galey',
