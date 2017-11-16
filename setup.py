@@ -13,7 +13,7 @@ setup(name='greenwich',
       author_email='bkgaley@gmail.com',
       url='https://github.com/bkg/greenwich',
       packages=['greenwich'],
-      install_requires=['GDAL', 'numpy', 'Pillow'],
+      install_requires=['GDAL', 'numpy'],
       license='BSD',
       classifiers=[
           'Development Status :: 4 - Beta',
