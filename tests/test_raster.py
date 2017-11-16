@@ -182,11 +182,11 @@ class RasterTestCase(RasterTestBase):
         for idx, val in enumerate(self.ds.affine.scale):
             outer_ul[idx] -= val
         point = make_point(outer_ul)
-        poly = point.Buffer(self.ds.affine.scale[0] * 2)
+        poly = point.Buffer(self.ds.affine.scale[0] * 3)
         poly.AssignSpatialReference(self.ds.sref)
         r = self.ds.clip(poly)
-        # Should return 2x2 pixel window with upper-left corner unmasked.
-        self.assertEqual(r.array().tolist(), [[1, 0], [0, 0]])
+        # Should return 2x2 pixel window with lower-right corner masked.
+        self.assertEqual(r.array().tolist(), [[1, 1], [1, 0]])
         r.close()
 
     def test_close(self):
@@ -293,7 +293,7 @@ class RasterTestCase(RasterTestBase):
             self.assertEqual((arr.min(), arr.max()), (0, 1))
         x, y = self.ds.affine.transform(point.GetPoints())[0]
         # Pixel within island should use the background color.
-        self.assertEqual(arr[y,x], 1)
+        self.assertEqual(arr[y,x], 0)
         p2 = make_point(self.ds.affine.origin)
         poly2 = ogr.Geometry(ogr.wkbMultiPolygon25D)
         poly2.AssignSpatialReference(self.ds.sref)
@@ -303,7 +303,7 @@ class RasterTestCase(RasterTestBase):
         poly2.SetCoordinateDimension(3)
         self.assertEqual(poly2.GetCoordinateDimension(), 3)
         arr2 = geom_to_array(poly2, self.ds.size, self.ds.affine)
-        idx = np.where(arr2 == 0)
+        idx = np.where(arr2 == 1)
         with self.ds.clip(poly2) as clip:
             m = clip.masked_array()
         for a, b in zip(np.where(~m.mask), idx):

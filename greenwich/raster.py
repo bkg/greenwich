@@ -7,7 +7,6 @@ import math
 import xml.etree.cElementTree as ET
 
 import numpy as np
-from PIL import Image, ImageDraw
 from osgeo import gdal, gdalconst, ogr
 
 from greenwich.base import Comparable
@@ -47,29 +46,26 @@ def geom_to_array(geom, size, affine):
     """Converts an OGR polygon to a 2D NumPy array.
 
     Arguments:
-    geom -- OGR Polygon or MultiPolygon
+    geom -- OGR Geometry
     size -- array size in pixels as a tuple of (width, height)
     affine -- AffineTransform
     """
-    background = 1
-    img = Image.new('L', size, background)
-    draw = ImageDraw.Draw(img)
-    if geom.GetCoordinateDimension() > 2:
-        geom.FlattenTo2D()
-    if geom.GetGeometryType() == ogr.wkbPolygon:
-        geom = [geom]
-    for polygon in geom:
-        fills = (0,) + (background,) * polygon.GetGeometryCount()
-        for ring, fill in zip(polygon, fills):
-            draw.polygon(affine.transform(ring.GetPoints()), fill)
-    return np.asarray(img)
+    driver = ImageDriver('MEM')
+    rast = driver.raster(driver.ShortName, size)
+    rast.affine = affine
+    rast.sref = geom.GetSpatialReference()
+    with MemoryLayer.from_records([(1, geom)]) as ml:
+        status = gdal.RasterizeLayer(rast.ds, (1,), ml.layer, burn_values=(1,))
+    arr = rast.array()
+    rast.close()
+    return arr
 
 def rasterize(layer, rast):
     """Returns a Raster from layer features.
 
     Arguments:
     layer -- Layer to rasterize
-    rast -- Raster for affine, size, and sref
+    rast -- Raster with target affine, size, and sref
     """
     driver = ImageDriver('MEM')
     r2 = driver.raster(driver.ShortName, rast.size)
@@ -487,7 +483,7 @@ class Raster(Comparable):
                 self.envelope.intersects(envelope)):
             raise ValueError('Envelope does not intersect with this extent')
         coords = self.affine.transform((envelope.ul, envelope.lr))
-        nxy = [min(dest + 1, size) - origin
+        nxy = [(min(dest, size) - origin) or 1
                for size, origin, dest in zip(self.size, *coords)]
         return coords[0] + tuple(nxy)
 
@@ -531,7 +527,7 @@ class Raster(Comparable):
         if not geom.Equals(env.polygon) and geom.GetGeometryType() != ogr.wkbPoint:
             arr = self._masked_array(env)
             # This will broadcast whereas np.ma.masked_array() does not.
-            arr.mask = geom_to_array(geom, dims, affine)
+            arr.mask = ~np.ma.make_mask(geom_to_array(geom, dims, affine))
             pixbuf = bytes(arr.filled().data)
         else:
             pixbuf = self.ds.ReadRaster(*readargs)
@@ -560,7 +556,8 @@ class Raster(Comparable):
             dims = self.get_offset(env)[2:]
             affine = AffineTransform(*tuple(self.affine))
             affine.origin = env.ul
-            arr.mask = arr.mask | geom_to_array(geom, dims, affine)
+            mask = ~np.ma.make_mask(geom_to_array(geom, dims, affine))
+            arr.mask = arr.mask | mask
         return arr
 
     @property
