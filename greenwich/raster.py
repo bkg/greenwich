@@ -516,10 +516,10 @@ class Raster(Comparable):
         geom = transform(geom, self.sref)
         env = Envelope.from_geom(geom).intersect(self.envelope)
         readargs = self.get_offset(env)
-        dims = readargs[2:]
+        imgcoord, dims = readargs[:2], readargs[2:]
         affine = AffineTransform(*tuple(self.affine))
         # Update origin coordinate for the new affine transformation.
-        affine.origin = env.ul
+        affine.origin = tuple(self.affine.project((imgcoord,)))[0]
         # Without an envelope or point, this becomes a masking operation.
         if not geom.Equals(env.polygon) and geom.GetGeometryType() != ogr.wkbPoint:
             arr = self._masked_array(env)

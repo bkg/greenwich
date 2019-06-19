@@ -85,7 +85,7 @@ class RasterTestCase(RasterTestBase):
     def setUp(self):
         super(RasterTestCase, self).setUp()
         # Shrink envelope
-        envelope = self.ds.envelope.scale(0.2)
+        envelope = self.ds.envelope.scale(0.211)
         self.bbox = envelope.polygon
         sref = SpatialReference(3857)
         self.bbox.AssignSpatialReference(sref)
@@ -129,6 +129,7 @@ class RasterTestCase(RasterTestBase):
         self.assertIsInstance(cropped, Raster)
         self.assertEqual(len(cropped), len(self.ds))
         self.assertLess(cropped.size, self.ds.size)
+        self.assertNotEqual(cropped.affine.origin, Envelope.from_geom(self.bbox).ul)
         # Should return the same pixel buffer regardless of the geometry
         # coordinate system.
         px_a = self.hexdigest(self.ds.crop(self.bbox_4326).ReadRaster())
