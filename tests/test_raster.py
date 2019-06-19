@@ -58,7 +58,7 @@ class AffineTransformTestCase(unittest.TestCase):
 
     def test_project(self):
         coord = tuple(self.affine.project(((0, 0),)))
-        expected = ((-119.0, 37.0),)
+        expected = ((self.affine[0], self.affine[3]),)
         self.assertEqual(coord, expected)
 
 

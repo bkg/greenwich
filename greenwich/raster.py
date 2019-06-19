@@ -138,9 +138,6 @@ class AffineTransform(Comparable):
         for x, y in coords:
             geo_x = geotransform[0] + geotransform[1] * x + geotransform[2] * y
             geo_y = geotransform[3] + geotransform[4] * x + geotransform[5] * y
-            # Move the coordinate to the center of the pixel.
-            geo_x += geotransform[1] / 2.0
-            geo_y += geotransform[5] / 2.0
             yield geo_x, geo_y
 
     def transform(self, coords):
