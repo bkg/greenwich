@@ -42,7 +42,7 @@ def driverdict_tolist(d):
     """Returns a GDAL formatted options list of strings from a dict."""
     return ['%s=%s' % (k, v) for k, v in d.items()]
 
-def geom_to_array(geom, size, affine):
+def geom_to_array(geom, size, affine, options=None):
     """Converts an OGR polygon to a 2D NumPy array.
 
     Arguments:
@@ -50,12 +50,14 @@ def geom_to_array(geom, size, affine):
     size -- array size in pixels as a tuple of (width, height)
     affine -- AffineTransform
     """
+    options = options or []
     driver = ImageDriver('MEM')
     rast = driver.raster(driver.ShortName, size)
     rast.affine = affine
     rast.sref = geom.GetSpatialReference()
     with MemoryLayer.from_records([(1, geom)]) as ml:
-        status = gdal.RasterizeLayer(rast.ds, (1,), ml.layer, burn_values=(1,))
+        status = gdal.RasterizeLayer(rast.ds, (1,), ml.layer, burn_values=(1,),
+                                     options=options)
     arr = rast.array()
     rast.close()
     return arr
@@ -538,7 +540,7 @@ class Raster(Comparable):
             return np.ma.masked_values(arr, self.nodata, copy=False)
         return np.ma.masked_array(arr, copy=False)
 
-    def masked_array(self, geometry=None):
+    def masked_array(self, geometry=None, options=None):
         """Returns a MaskedArray using nodata values.
 
         Keyword args:
@@ -553,7 +555,7 @@ class Raster(Comparable):
             dims = self.get_offset(env)[2:]
             affine = AffineTransform(*tuple(self.affine))
             affine.origin = env.ul
-            mask = ~np.ma.make_mask(geom_to_array(geom, dims, affine))
+            mask = ~np.ma.make_mask(geom_to_array(geom, dims, affine, options))
             arr.mask = arr.mask | mask
         return arr
 
