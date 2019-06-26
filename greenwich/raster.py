@@ -550,10 +550,9 @@ class Raster(Comparable):
         env = Envelope.from_geom(geom).intersect(self.envelope)
         arr = self._masked_array(env)
         if geom.GetGeometryType() != ogr.wkbPoint:
-            readargs = self.get_offset(env)
-            imgcoord, dims = readargs[:2], readargs[2:]
+            dims = self.get_offset(env)[2:]
             affine = AffineTransform(*tuple(self.affine))
-            affine.origin = tuple(self.affine.project((imgcoord,)))[0]
+            affine.origin = env.ul
             mask = ~np.ma.make_mask(geom_to_array(geom, dims, affine))
             arr.mask = arr.mask | mask
         return arr
