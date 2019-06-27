@@ -482,7 +482,7 @@ class Raster(Comparable):
                 self.envelope.intersects(envelope)):
             raise ValueError('Envelope does not intersect with this extent')
         coords = self.affine.transform((envelope.ul, envelope.lr))
-        nxy = [(min(dest, size) - origin) or 1
+        nxy = [(min(dest, size - 1) + 1 - max(origin, 0))
                for size, origin, dest in zip(self.size, *coords)]
         return coords[0] + tuple(nxy)
 
@@ -552,9 +552,10 @@ class Raster(Comparable):
         env = Envelope.from_geom(geom).intersect(self.envelope)
         arr = self._masked_array(env)
         if geom.GetGeometryType() != ogr.wkbPoint:
-            dims = self.get_offset(env)[2:]
+            readargs = self.get_offset(env)
+            imgcoord, dims = readargs[:2], readargs[2:]
             affine = AffineTransform(*tuple(self.affine))
-            affine.origin = env.ul
+            affine.origin = tuple(self.affine.project((imgcoord,)))[0]
             mask = ~np.ma.make_mask(geom_to_array(geom, dims, affine, options))
             arr.mask = arr.mask | mask
         return arr

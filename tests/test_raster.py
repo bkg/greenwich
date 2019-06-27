@@ -186,8 +186,7 @@ class RasterTestCase(RasterTestBase):
         poly = point.Buffer(self.ds.affine.scale[0] * 3)
         poly.AssignSpatialReference(self.ds.sref)
         r = self.ds.clip(poly)
-        # Should return 2x2 pixel window with lower-right corner masked.
-        self.assertEqual(r.array().tolist(), [[1, 1], [1, 0]])
+        self.assertEqual(r.array().tolist(), [[1, 1, 0], [1, 0, 0], [0, 0, 0]])
         r.close()
 
     def test_close(self):
@@ -230,7 +229,7 @@ class RasterTestCase(RasterTestBase):
         extent = tuple(self.ds.envelope.scale(.25))
         m = self.ds.masked_array(extent)
         self.assertLess(m.shape, self.ds.shape)
-        self.assertEqual(m[-1,-1], 1)
+        self.assertEqual(m[-2,-2], 1)
 
     def test_save(self):
         ext = '.img'
