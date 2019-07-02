@@ -136,11 +136,10 @@ class AffineTransform(Comparable):
         coords -- input coordinates as iterable containing two-tuples/lists
         such as ((0, 0), (10, 10))
         """
-        geotransform = self.tuple
-        for x, y in coords:
-            geo_x = geotransform[0] + geotransform[1] * x + geotransform[2] * y
-            geo_y = geotransform[3] + geotransform[4] * x + geotransform[5] * y
-            yield geo_x, geo_y
+        easting, sx, rx, northing, sy, ry = self.tuple
+        return [(easting + sx * x + rx * y,
+                 northing + sy * x + ry * y)
+                for x, y in coords]
 
     def transform(self, coords):
         """Transform from projection coordinates (Xp,Yp) space to pixel/line
@@ -325,6 +324,19 @@ class ImageDriver(object):
         return self._driver.ShortName
 
 
+class ImageWindow(collections.namedtuple('ImageWindow', 'x y width height')):
+    """A window of image coordinates for reading a raster."""
+    __slots__ = ()
+
+    @property
+    def dims(self):
+        return (self.width, self.height)
+
+    @property
+    def origin(self):
+        return (self.x, self.y)
+
+
 class Raster(Comparable):
     """Wrap a GDAL Dataset with additional behavior."""
 
@@ -429,7 +441,7 @@ class Raster(Comparable):
         """
         args = ()
         if envelope:
-            args = self.get_offset(envelope)
+            args = self.get_window(envelope)
         return self.ds.ReadAsArray(*args)
 
     def close(self):
@@ -470,7 +482,7 @@ class Raster(Comparable):
         w, h = self.size
         self.ds.WriteRaster(0, 0, w, h, bytedata, band_list=self.bandlist)
 
-    def get_offset(self, envelope):
+    def get_window(self, envelope):
         """Returns a 4-tuple pixel window (x_offset, y_offset, x_size, y_size).
 
         Arguments:
@@ -484,7 +496,7 @@ class Raster(Comparable):
         coords = self.affine.transform((envelope.ul, envelope.lr))
         nxy = [(min(dest, size - 1) + 1 - max(origin, 0))
                for size, origin, dest in zip(self.size, *coords)]
-        return coords[0] + tuple(nxy)
+        return ImageWindow(*coords[0] + tuple(nxy))
 
     @property
     def driver(self):
@@ -517,20 +529,19 @@ class Raster(Comparable):
     def _subset(self, geom):
         geom = transform(geom, self.sref)
         env = Envelope.from_geom(geom).intersect(self.envelope)
-        readargs = self.get_offset(env)
-        imgcoord, dims = readargs[:2], readargs[2:]
+        win = self.get_window(env)
         affine = AffineTransform(*tuple(self.affine))
         # Update origin coordinate for the new affine transformation.
-        affine.origin = tuple(self.affine.project((imgcoord,)))[0]
+        affine.origin = self.affine.project([win.origin])[0]
         # Without an envelope or point, this becomes a masking operation.
         if not geom.Equals(env.polygon) and geom.GetGeometryType() != ogr.wkbPoint:
             arr = self._masked_array(env)
             # This will broadcast whereas np.ma.masked_array() does not.
-            arr.mask = ~np.ma.make_mask(geom_to_array(geom, dims, affine))
+            arr.mask = ~np.ma.make_mask(geom_to_array(geom, win.dims, affine))
             pixbuf = bytes(arr.filled().data)
         else:
-            pixbuf = self.ds.ReadRaster(*readargs)
-        clone = self.new(dims + (len(self),), affine)
+            pixbuf = self.ds.ReadRaster(*win)
+        clone = self.new(win.dims + (len(self),), affine)
         clone.frombytes(pixbuf)
         return clone
 
@@ -552,11 +563,10 @@ class Raster(Comparable):
         env = Envelope.from_geom(geom).intersect(self.envelope)
         arr = self._masked_array(env)
         if geom.GetGeometryType() != ogr.wkbPoint:
-            readargs = self.get_offset(env)
-            imgcoord, dims = readargs[:2], readargs[2:]
+            win = self.get_window(env)
             affine = AffineTransform(*tuple(self.affine))
-            affine.origin = tuple(self.affine.project((imgcoord,)))[0]
-            mask = ~np.ma.make_mask(geom_to_array(geom, dims, affine, options))
+            affine.origin = self.affine.project([win.origin])[0]
+            mask = ~np.ma.make_mask(geom_to_array(geom, win.dims, affine, options))
             arr.mask = arr.mask | mask
         return arr
 
