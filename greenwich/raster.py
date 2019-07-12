@@ -369,6 +369,7 @@ class Raster(Comparable):
         self.closed = False
         # Closes the gdal.Dataset
         dataset = None
+        self.mask_opts = []
 
     def __getattr__(self, attr):
         """Delegate calls to the gdal.Dataset."""
@@ -537,7 +538,8 @@ class Raster(Comparable):
         if not geom.Equals(env.polygon) and geom.GetGeometryType() != ogr.wkbPoint:
             arr = self._masked_array(env)
             # This will broadcast whereas np.ma.masked_array() does not.
-            arr.mask = ~np.ma.make_mask(geom_to_array(geom, win.dims, affine))
+            arr.mask = ~np.ma.make_mask(
+                geom_to_array(geom, win.dims, affine, self.mask_opts))
             pixbuf = bytes(arr.filled().data)
         else:
             pixbuf = self.ds.ReadRaster(*win)
@@ -551,7 +553,7 @@ class Raster(Comparable):
             return np.ma.masked_values(arr, self.nodata, copy=False)
         return np.ma.masked_array(arr, copy=False)
 
-    def masked_array(self, geometry=None, options=None):
+    def masked_array(self, geometry=None):
         """Returns a MaskedArray using nodata values.
 
         Keyword args:
@@ -566,7 +568,8 @@ class Raster(Comparable):
             win = self.get_window(env)
             affine = AffineTransform(*tuple(self.affine))
             affine.origin = self.affine.project([win.origin])[0]
-            mask = ~np.ma.make_mask(geom_to_array(geom, win.dims, affine, options))
+            mask = ~np.ma.make_mask(
+                geom_to_array(geom, win.dims, affine, self.mask_opts))
             arr.mask = arr.mask | mask
         return arr
 
