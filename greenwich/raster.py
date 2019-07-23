@@ -580,12 +580,17 @@ class Raster(Comparable):
 
     @property
     def nodata(self):
-        """Returns read only property for band nodata value, assuming single
-        band rasters for now.
+        """Returns property for band nodata value, assuming single band rasters
+        for now.
         """
         if self._nodata is None:
             self._nodata = self[0].GetNoDataValue()
         return self._nodata
+
+    @nodata.setter
+    def nodata(self, val):
+        for band in self:
+            band.SetNoDataValue(val)
 
     def ReadRaster(self, *args, **kwargs):
         """Returns raster data bytes for partial or full extent.
