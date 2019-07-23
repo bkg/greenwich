@@ -550,7 +550,12 @@ class Raster(Comparable):
     def _masked_array(self, envelope=()):
         arr = self.array(envelope)
         if self.nodata is not None:
-            return np.ma.masked_values(arr, self.nodata, copy=False)
+            if not np.isnan(self.nodata):
+                return np.ma.masked_values(arr, self.nodata, copy=False)
+            else:
+                marr = np.ma.masked_invalid(arr, copy=False)
+                marr.set_fill_value(self.nodata)
+                return marr
         return np.ma.masked_array(arr, copy=False)
 
     def masked_array(self, geometry=None):

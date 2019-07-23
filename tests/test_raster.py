@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 import numpy as np
-from osgeo import gdal, ogr, osr
+from osgeo import gdal, gdal_array, ogr, osr
 
 from greenwich.raster import (ImageDriver, Raster, AffineTransform,
     count_unique, driver_for_path, rasterize, geom_to_array, frombytes, open as ropen)
@@ -17,20 +17,18 @@ from greenwich.geometry import Envelope
 from greenwich.layer import MemoryLayer
 from greenwich.srs import SpatialReference
 
-def create_gdal_datasource(fname=None, dtype=np.ubyte, bands=1):
+def create_gdal_datasource(fname=None, dtype=np.ubyte, bands=1, nodata=0):
     """Returns a GDAL Datasource for testing."""
     xsize, ysize = 800, 1000
+    bandtype = gdal_array.flip_code(dtype)
     arr = np.ones((ysize, xsize), dtype=dtype)
-    if fname:
-        driver = gdal.GetDriverByName('GTiff')
-    else:
-        driver = gdal.GetDriverByName('MEM')
-        fname = ''
-    datasource = driver.Create(fname, xsize, ysize, bands)
+    fname = fname or ''
+    driver = gdal.GetDriverByName('GTiff' if fname else 'MEM')
+    datasource = driver.Create(fname, xsize, ysize, bands, bandtype)
     for bandnum in range(1, bands + 1):
         band = datasource.GetRasterBand(bandnum)
         band.WriteArray(arr)
-        band.SetNoDataValue(0)
+        band.SetNoDataValue(nodata)
     sref = osr.SpatialReference()
     sref.ImportFromEPSG(3857)
     datasource.SetProjection(sref.ExportToWkt())
@@ -231,6 +229,13 @@ class RasterTestCase(RasterTestBase):
         self.assertLess(m.shape, self.ds.shape)
         self.assertEqual(m[-2,-2], 1)
 
+    def test_masked_array_fill_value(self):
+        ds = Raster(create_gdal_datasource(dtype=np.float32, nodata=np.nan))
+        self.assertTrue(np.isnan(ds.nodata))
+        m = ds.masked_array()
+        self.assertEqual(m.mask.shape, m.data.shape)
+        self.assertTrue(np.isnan(m.fill_value))
+
     def test_save(self):
         ext = '.img'
         fp = tempfile.NamedTemporaryFile(suffix=ext)
@@ -356,7 +361,7 @@ class RasterTestCase(RasterTestBase):
         self.assertEqual(r.sref.srid, epsg_id)
         self.assertNotEqual(r.shape, self.ds.shape)
         self.assertEqual(r.array().shape, r.shape)
-        epsg_id = 3857
+        r.close()
         fp = tempfile.NamedTemporaryFile()
         r = self.ds.warp(epsg_id, dest=fp.name)
         self.assertEqual(r.sref.srid, epsg_id)
