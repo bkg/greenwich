@@ -7,7 +7,7 @@ import math
 import xml.etree.cElementTree as ET
 
 import numpy as np
-from osgeo import gdal, gdalconst, ogr
+from osgeo import gdal, gdal_array, gdalconst, ogr
 
 from greenwich.base import Comparable
 from greenwich.io import MemFileIO, vsiprefix
@@ -726,6 +726,14 @@ def open(path, mode=gdalconst.GA_ReadOnly):
             gdal.FileFromMemBuffer(imgio.name, imgdata)
             return Raster(imgio, mode)
     raise ValueError('Failed to open raster from "%r"' % path)
+
+def fromarray(arr):
+    """Returns an in-memory raster from a numpy array."""
+    bandtype = gdal_array.flip_code(arr.dtype.type)
+    r = frombytes(arr.tobytes(), tuple(reversed(arr.shape)), bandtype)
+    if hasattr(arr, 'fill_value'):
+        r.nodata = arr.fill_value
+    return r
 
 def frombytes(data, size, bandtype=gdal.GDT_Byte):
     """Returns an in-memory raster initialized from a pixel buffer.

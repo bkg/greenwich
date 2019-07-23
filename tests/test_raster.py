@@ -12,6 +12,7 @@ from osgeo import gdal, gdal_array, ogr, osr
 
 from greenwich.raster import (ImageDriver, Raster, AffineTransform,
     count_unique, driver_for_path, rasterize, geom_to_array, frombytes, open as ropen)
+from greenwich import raster
 from greenwich.io import MemFileIO, VSIFile
 from greenwich.geometry import Envelope
 from greenwich.layer import MemoryLayer
@@ -194,6 +195,15 @@ class RasterTestCase(RasterTestBase):
         self.assertTrue(self.ds.closed)
         with self.assertRaises(ValueError):
             self.ds.GetRasterBand(1)
+
+    def test_fromarray(self):
+        shape = (5, 3, 2)
+        arr = np.random.random(shape).astype(np.float32)
+        r = raster.fromarray(arr)
+        rastershape = (3, 2, 5)
+        self.assertEqual(r.shape, rastershape)
+        self.assertTrue((r.array() == arr).all())
+        self.assertEqual(r[0].DataType, gdal.GDT_Float32)
 
     def test_frombytes(self):
         shape = (2, 3, 5)
