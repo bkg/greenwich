@@ -698,6 +698,7 @@ class Raster(Comparable):
         rwarp.SetProjection(to_sref)
         if self.nodata is not None:
             for band in rwarp:
+                band.Fill(self.nodata)
                 band.SetNoDataValue(self.nodata)
                 band = None
         # Uses self and rwarp projection when set to None
